@@ -18,7 +18,7 @@ module.exports = {
       url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 8453,
-      gasPrice: 1000000000, // 1 gwei
+      gasPrice: 500000000, // 0.5 gwei - reduced from 1 gwei
       timeout: 60000,
     },
     // Base Sepolia Testnet (for testing)

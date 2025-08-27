@@ -6,51 +6,91 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title PredictionMarket
- * @dev A simple prediction market contract for Base blockchain
+ * @dev A prediction market contract for Base blockchain with admin functionality, claim system, and enhanced user tracking
  */
 contract PredictionMarket is ReentrancyGuard, Ownable {
     uint256 private _marketIds = 0;
+    
+    // Admin address - can resolve markets
+    address public admin = 0x21D654daaB0fe1be0e584980ca7C1a382850939f;
+    
+    // Market status enum
+    enum MarketStatus { ACTIVE, RESOLVED, CANCELLED }
     
     struct Market {
         uint256 id;
         string question;
         string description;
+        string category;
+        string image;
         uint256 endTime;
-        bool resolved;
+        MarketStatus status;
         bool outcome;
         uint256 totalYes;
         uint256 totalNo;
+        uint256 totalPool;
         mapping(address => uint256) yesShares;
         mapping(address => uint256) noShares;
-        mapping(address => bool) hasVoted;
+        mapping(address => bool) hasParticipated;
+        mapping(address => bool) participationSide; // true=Yes, false=No
+        mapping(address => uint256) claimableAmount; // Amount user can claim
+        mapping(address => bool) hasClaimed; // Whether user has claimed
     }
     
     mapping(uint256 => Market) public markets;
     
-    uint256 public marketCreationFee = 0.001 ether;
-    uint256 public tradingFee = 0.005 ether; // 0.5%
+    uint256 public marketCreationFee = 0.00005 ether;
+    uint256 public tradingFee = 0.00001 ether;
     
-    event MarketCreated(uint256 indexed marketId, string question, uint256 endTime);
-    event MarketResolved(uint256 indexed marketId, bool outcome);
-    event SharesBought(uint256 indexed marketId, address indexed buyer, bool outcome, uint256 amount);
-    event SharesSold(uint256 indexed marketId, address indexed seller, bool outcome, uint256 amount);
+    // Enhanced events with user tracking
+    event MarketCreated(
+        uint256 indexed marketId, 
+        address indexed creator, 
+        string question, 
+        string category, 
+        uint256 endTime
+    );
+    event SharesBought(
+        uint256 indexed marketId, 
+        address indexed buyer, 
+        bool isYesShares, 
+        uint256 amount
+    );
+    event MarketResolved(
+        uint256 indexed marketId, 
+        address indexed resolver, 
+        bool outcome
+    );
+    event WinningsClaimed(
+        uint256 indexed marketId, 
+        address indexed claimant, 
+        uint256 amount
+    );
+    event FeesUpdated(uint256 newCreationFee, uint256 newTradingFee);
+    event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
+    
+    // Modifiers
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only admin can call this function");
+        _;
+    }
     
     constructor() Ownable(msg.sender) {}
     
     /**
      * @dev Create a new prediction market
-     * @param question The prediction question
-     * @param description Additional description
-     * @param endTime When the market closes (timestamp)
      */
     function createMarket(
         string memory question,
         string memory description,
+        string memory category,
+        string memory image,
         uint256 endTime
     ) external payable returns (uint256) {
         require(msg.value >= marketCreationFee, "Insufficient creation fee");
         require(endTime > block.timestamp, "End time must be in the future");
         require(bytes(question).length > 0, "Question cannot be empty");
+        require(bytes(category).length > 0, "Category cannot be empty");
         
         _marketIds++;
         uint256 marketId = _marketIds;
@@ -59,25 +99,33 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
         market.id = marketId;
         market.question = question;
         market.description = description;
+        market.category = category;
+        market.image = image;
         market.endTime = endTime;
-        market.resolved = false;
+        market.status = MarketStatus.ACTIVE;
+        market.totalPool = 0;
         
-        emit MarketCreated(marketId, question, endTime);
+        emit MarketCreated(marketId, msg.sender, question, category, endTime);
         
         return marketId;
     }
     
     /**
      * @dev Buy shares for a specific outcome
-     * @param marketId The market ID
-     * @param outcome True for Yes, False for No
      */
     function buyShares(uint256 marketId, bool outcome) external payable nonReentrant {
         Market storage market = markets[marketId];
         require(market.id != 0, "Market does not exist");
-        require(!market.resolved, "Market already resolved");
+        require(market.status == MarketStatus.ACTIVE, "Market is not active");
         require(block.timestamp < market.endTime, "Market has ended");
         require(msg.value > 0, "Must send ETH to buy shares");
+        
+        // Check if user has already participated in this market
+        require(!market.hasParticipated[msg.sender], "Already participated in this market");
+        
+        // Mark user as participated and set their side
+        market.hasParticipated[msg.sender] = true;
+        market.participationSide[msg.sender] = outcome;
         
         if (outcome) {
             market.yesShares[msg.sender] += msg.value;
@@ -87,84 +135,112 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
             market.totalNo += msg.value;
         }
         
+        market.totalPool += msg.value;
+        
         emit SharesBought(marketId, msg.sender, outcome, msg.value);
     }
     
     /**
-     * @dev Sell shares for a specific outcome
-     * @param marketId The market ID
-     * @param outcome True for Yes, False for No
-     * @param amount Amount of shares to sell
+     * @dev Resolve a market (only admin)
      */
-    function sellShares(uint256 marketId, bool outcome, uint256 amount) external nonReentrant {
+    function resolveMarket(uint256 marketId, bool outcome) external onlyAdmin {
         Market storage market = markets[marketId];
         require(market.id != 0, "Market does not exist");
-        require(!market.resolved, "Market already resolved");
-        require(block.timestamp < market.endTime, "Market has ended");
+        require(market.status == MarketStatus.ACTIVE, "Market is not active");
+        require(block.timestamp >= market.endTime, "Market has not ended yet");
         
-        uint256 userShares = outcome ? market.yesShares[msg.sender] : market.noShares[msg.sender];
-        require(userShares >= amount, "Insufficient shares to sell");
+        market.status = MarketStatus.RESOLVED;
+        market.outcome = outcome;
         
-        uint256 payout = amount - (amount * tradingFee / 1000);
+        // Calculate claimable amounts for all participants
+        _calculateClaimableAmounts(marketId, outcome);
         
-        if (outcome) {
-            market.yesShares[msg.sender] -= amount;
-            market.totalYes -= amount;
-        } else {
-            market.noShares[msg.sender] -= amount;
-            market.totalNo -= amount;
-        }
-        
-        payable(msg.sender).transfer(payout);
-        emit SharesSold(marketId, msg.sender, outcome, amount);
+        emit MarketResolved(marketId, msg.sender, outcome);
     }
     
     /**
-     * @dev Resolve a market (only owner)
-     * @param marketId The market ID
-     * @param outcome The actual outcome
+     * @dev Calculate claimable amounts for all participants
      */
-    function resolveMarket(uint256 marketId, bool outcome) external onlyOwner {
-        Market storage market = markets[marketId];
-        require(market.id != 0, "Market does not exist");
-        require(!market.resolved, "Market already resolved");
-        require(block.timestamp >= market.endTime, "Market has not ended yet");
+    function _calculateClaimableAmounts(uint256 marketId, bool /* outcome */) private view {
+        // For each participant, calculate their potential winnings
+        // This is a simplified calculation - in a real implementation,
+        // you might want to iterate through participants more efficiently
         
-        market.resolved = true;
-        market.outcome = outcome;
-        
-        emit MarketResolved(marketId, outcome);
+        // Note: This is a placeholder for the calculation logic
+        // In practice, you'd need to track participants and calculate individually
+        // For now, users will calculate their claimable amount when they call claimWinnings
     }
     
     /**
      * @dev Claim winnings after market resolution
-     * @param marketId The market ID
      */
     function claimWinnings(uint256 marketId) external nonReentrant {
         Market storage market = markets[marketId];
         require(market.id != 0, "Market does not exist");
-        require(market.resolved, "Market not yet resolved");
+        require(market.status == MarketStatus.RESOLVED, "Market not yet resolved");
+        require(!market.hasClaimed[msg.sender], "Already claimed winnings");
         
-        uint256 winnings = 0;
+        uint256 claimableAmount = _calculateUserClaimableAmount(marketId, msg.sender);
+        require(claimableAmount > 0, "No winnings to claim");
+        
+        // Mark as claimed
+        market.hasClaimed[msg.sender] = true;
+        
+        // Transfer winnings
+        payable(msg.sender).transfer(claimableAmount);
+        
+        emit WinningsClaimed(marketId, msg.sender, claimableAmount);
+    }
+    
+    /**
+     * @dev Calculate how much a user can claim for a specific market
+     */
+    function _calculateUserClaimableAmount(uint256 marketId, address user) private view returns (uint256) {
+        Market storage market = markets[marketId];
         
         if (market.outcome) {
-            winnings = market.yesShares[msg.sender];
-            market.yesShares[msg.sender] = 0;
+            // Outcome is Yes - Yes shares win, No shares lose
+            if (market.yesShares[user] > 0) {
+                // Calculate winnings based on total pool and user's share percentage
+                uint256 userSharePercentage = (market.yesShares[user] * 1e18) / market.totalYes;
+                uint256 winningPool = market.totalPool;
+                return (winningPool * userSharePercentage) / 1e18;
+            }
         } else {
-            winnings = market.noShares[msg.sender];
-            market.noShares[msg.sender] = 0;
+            // Outcome is No - No shares win, Yes shares lose
+            if (market.noShares[user] > 0) {
+                // Calculate winnings based on total pool and user's share percentage
+                uint256 userSharePercentage = (market.noShares[user] * 1e18) / market.totalNo;
+                uint256 winningPool = market.totalPool;
+                return (winningPool * userSharePercentage) / 1e18;
+            }
         }
         
-        require(winnings > 0, "No winnings to claim");
+        return 0;
+    }
+    
+    /**
+     * @dev Get claimable amount for a user (view function)
+     */
+    function getClaimableAmount(uint256 marketId, address user) external view returns (uint256) {
+        Market storage market = markets[marketId];
+        require(market.id != 0, "Market does not exist");
+        require(market.status == MarketStatus.RESOLVED, "Market not yet resolved");
         
-        payable(msg.sender).transfer(winnings);
+        return _calculateUserClaimableAmount(marketId, user);
+    }
+    
+    /**
+     * @dev Check if user has claimed winnings for a market
+     */
+    function hasUserClaimed(uint256 marketId, address user) external view returns (bool) {
+        Market storage market = markets[marketId];
+        require(market.id != 0, "Market does not exist");
+        return market.hasClaimed[user];
     }
     
     /**
      * @dev Get user shares for a specific market and outcome
-     * @param marketId The market ID
-     * @param user The user address
-     * @param outcome True for Yes, False for No
      */
     function getUserShares(uint256 marketId, address user, bool outcome) external view returns (uint256) {
         Market storage market = markets[marketId];
@@ -174,18 +250,39 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
     }
     
     /**
+     * @dev Check if user has participated in a market
+     */
+    function hasUserParticipated(uint256 marketId, address user) external view returns (bool) {
+        Market storage market = markets[marketId];
+        require(market.id != 0, "Market does not exist");
+        return market.hasParticipated[user];
+    }
+    
+    /**
+     * @dev Get user's participation side
+     */
+    function getUserParticipationSide(uint256 marketId, address user) external view returns (bool) {
+        Market storage market = markets[marketId];
+        require(market.id != 0, "Market does not exist");
+        require(market.hasParticipated[user], "User has not participated");
+        return market.participationSide[user];
+    }
+    
+    /**
      * @dev Get market details
-     * @param marketId The market ID
      */
     function getMarket(uint256 marketId) external view returns (
         uint256 id,
         string memory question,
         string memory description,
+        string memory category,
+        string memory image,
         uint256 endTime,
-        bool resolved,
+        MarketStatus status,
         bool outcome,
         uint256 totalYes,
-        uint256 totalNo
+        uint256 totalNo,
+        uint256 totalPool
     ) {
         Market storage market = markets[marketId];
         require(market.id != 0, "Market does not exist");
@@ -194,11 +291,14 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
             market.id,
             market.question,
             market.description,
+            market.category,
+            market.image,
             market.endTime,
-            market.resolved,
+            market.status,
             market.outcome,
             market.totalYes,
-            market.totalNo
+            market.totalNo,
+            market.totalPool
         );
     }
     
@@ -210,8 +310,27 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
     }
     
     /**
+     * @dev Get current fee information
+     */
+    function getFeeInfo() external view returns (uint256 creationFee, uint256 tradingFees) {
+        return (marketCreationFee, tradingFee);
+    }
+    
+    /**
+     * @dev Change admin address (only current admin)
+     */
+    function changeAdmin(address newAdmin) external {
+        require(msg.sender == admin, "Only admin can change admin");
+        require(newAdmin != address(0), "New admin cannot be zero address");
+        
+        address oldAdmin = admin;
+        admin = newAdmin;
+        
+        emit AdminChanged(oldAdmin, newAdmin);
+    }
+    
+    /**
      * @dev Update market creation fee (only owner)
-     * @param newFee New fee amount
      */
     function setMarketCreationFee(uint256 newFee) external onlyOwner {
         marketCreationFee = newFee;
@@ -219,11 +338,23 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
     
     /**
      * @dev Update trading fee (only owner)
-     * @param newFee New fee percentage (basis points)
      */
     function setTradingFee(uint256 newFee) external onlyOwner {
-        require(newFee <= 50, "Fee cannot exceed 5%");
+        require(newFee <= 0.01 ether, "Fee cannot exceed 0.01 ETH");
         tradingFee = newFee;
+    }
+    
+    /**
+     * @dev Update both fees at once (only owner)
+     */
+    function setFees(uint256 newCreationFee, uint256 newTradingFee) external onlyOwner {
+        require(newCreationFee > 0, "Creation fee must be greater than 0");
+        require(newTradingFee <= 0.01 ether, "Trading fee cannot exceed 0.01 ETH");
+        
+        marketCreationFee = newCreationFee;
+        tradingFee = newTradingFee;
+        
+        emit FeesUpdated(newCreationFee, newTradingFee);
     }
     
     /**

@@ -16,7 +16,10 @@ async function main() {
     // Deploy the PredictionMarket contract
     console.log("📦 Deploying PredictionMarket contract...");
     const PredictionMarket = await ethers.getContractFactory("PredictionMarket");
-    const predictionMarket = await PredictionMarket.deploy();
+    const predictionMarket = await PredictionMarket.deploy({
+        gasLimit: 3000000, // Set gas limit to control costs
+        gasPrice: ethers.parseUnits("0.5", "gwei") // 0.5 gwei
+    });
     
     await predictionMarket.waitForDeployment();
     const contractAddress = await predictionMarket.getAddress();

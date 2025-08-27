@@ -1,38 +1,67 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { APP_CONFIG } from '../../utils/constants';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-gray-50 border-t border-gray-200">
+    <footer className="footer">
       <div className="container">
-        <div className="flex flex-col md:flex-row justify-between items-center">
-          <div className="mb-4 md:mb-0">
-            <Link to="/" className="logo">
-              <span className="logo-text">{APP_CONFIG.name}</span>
+        {/* Main Footer Content */}
+        <div className="footer-main">
+          {/* Brand Section */}
+          <div className="footer-brand">
+            <Link to="/" >
+              <img src="/logo.png" alt="Logo" className="logo-icon" />
+              <div className="brand-text">
+                <h3 className="brand-name">Zyn</h3>
+                <p className="brand-tagline">Decentralized prediction markets on Base</p>
+              </div>
             </Link>
-            <p className="text-sm text-gray-600 mt-2">
-              Decentralized prediction markets on Base
-            </p>
           </div>
-          
-          <div className="flex space-x-6">
-            <Link to="/markets" className="text-sm text-gray-600 hover:text-gray-900">
-              Markets
-            </Link>
-            <Link to="/create" className="text-sm text-gray-600 hover:text-gray-900">
-              Create Market
-            </Link>
-            <Link to="/profile" className="text-sm text-gray-600 hover:text-gray-900">
-              Profile
-            </Link>
+
+          {/* Navigation Links */}
+          <div className="footer-nav">
+            <div className="nav-section">
+              <h4 className="nav-title">Platform</h4>
+              <div className="nav-links">
+                <Link to="/markets" className="nav-link">Browse Markets</Link>
+                <Link to="/create" className="nav-link">Create Market</Link>
+                <Link to="/profile" className="nav-link">Profile</Link>
+              </div>
+            </div>
+            
+            <div className="nav-section">
+              <h4 className="nav-title">Resources</h4>
+              <div className="nav-links">
+                <a href="#" className="nav-link">Documentation</a>
+                <a href="#" className="nav-link">API</a>
+                <a href="#" className="nav-link">Support</a>
+              </div>
+            </div>
+            
+            <div className="nav-section">
+              <h4 className="nav-title">Community</h4>
+              <div className="nav-links">
+                <a href="#" className="nav-link">Discord</a>
+                <a href="#" className="nav-link">Twitter</a>
+                <a href="#" className="nav-link">Blog</a>
+              </div>
+            </div>
           </div>
         </div>
-        
-        <div className="border-t border-gray-200 mt-6 pt-6 text-center">
-          <p className="text-sm text-gray-600">
-            © {new Date().getFullYear()} {APP_CONFIG.name}. All rights reserved.
-          </p>
+
+        {/* Bottom Section */}
+        <div className="footer-bottom">
+          <div className="footer-bottom-content">
+            <div className="copyright">
+              <p>© {new Date().getFullYear()} Zyn. All rights reserved.</p>
+            </div>
+            
+            <div className="footer-actions">
+              <a href="#" className="action-link">Privacy Policy</a>
+              <a href="#" className="action-link">Terms of Service</a>
+              <a href="#" className="action-link">Cookie Policy</a>
+            </div>
+          </div>
         </div>
       </div>
     </footer>

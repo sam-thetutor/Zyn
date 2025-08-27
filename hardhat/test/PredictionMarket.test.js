@@ -7,6 +7,8 @@ describe("PredictionMarket", function () {
   let user1;
   let user2;
   let user3;
+  let currentTime;
+  let futureTime;
 
   beforeEach(async function () {
     // Get signers
@@ -16,6 +18,12 @@ describe("PredictionMarket", function () {
     const PredictionMarket = await ethers.getContractFactory("PredictionMarket");
     predictionMarket = await PredictionMarket.deploy();
     await predictionMarket.waitForDeployment();
+    
+    // Set consistent timestamps for testing using Hardhat's time manipulation
+    const blockNum = await ethers.provider.getBlockNumber();
+    const block = await ethers.provider.getBlock(blockNum);
+    currentTime = block.timestamp;
+    futureTime = currentTime + 86400; // 24 hours from current block time
   });
 
   describe("Deployment", function () {
@@ -36,7 +44,6 @@ describe("PredictionMarket", function () {
   describe("Market Creation", function () {
     const question = "Will Bitcoin reach $100k by end of 2024?";
     const description = "A simple prediction market for Bitcoin price";
-    const endTime = Math.floor(Date.now() / 1000) + 86400; // 24 hours from now
 
     it("Should create a market with correct parameters", async function () {
       const creationFee = await predictionMarket.marketCreationFee();
@@ -44,17 +51,17 @@ describe("PredictionMarket", function () {
       await expect(predictionMarket.connect(user1).createMarket(
         question,
         description,
-        endTime,
+        futureTime,
         { value: creationFee }
       )).to.emit(predictionMarket, "MarketCreated")
-        .withArgs(1, question, endTime);
+        .withArgs(1, question, futureTime);
 
       expect(await predictionMarket.getTotalMarkets()).to.equal(1);
       
       const market = await predictionMarket.getMarket(1);
       expect(market.question).to.equal(question);
       expect(market.description).to.equal(description);
-      expect(market.endTime).to.equal(endTime);
+      expect(market.endTime).to.equal(futureTime);
       expect(market.resolved).to.equal(false);
     });
 
@@ -64,13 +71,13 @@ describe("PredictionMarket", function () {
       await expect(predictionMarket.connect(user1).createMarket(
         question,
         description,
-        endTime,
+        futureTime,
         { value: insufficientFee }
       )).to.be.revertedWith("Insufficient creation fee");
     });
 
     it("Should fail to create market with past end time", async function () {
-      const pastTime = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
+      const pastTime = currentTime - 3600; // 1 hour ago
       const creationFee = await predictionMarket.marketCreationFee();
       
       await expect(predictionMarket.connect(user1).createMarket(
@@ -86,14 +93,13 @@ describe("PredictionMarket", function () {
     let marketId;
     const question = "Will Ethereum 2.0 launch in 2024?";
     const description = "Ethereum 2.0 launch prediction";
-    const endTime = Math.floor(Date.now() / 1000) + 86400;
 
     beforeEach(async function () {
       const creationFee = await predictionMarket.marketCreationFee();
       await predictionMarket.connect(user1).createMarket(
         question,
         description,
-        endTime,
+        futureTime,
         { value: creationFee }
       );
       marketId = 1;
@@ -142,14 +148,13 @@ describe("PredictionMarket", function () {
     let marketId;
     const question = "Will Solana have 100% uptime in 2024?";
     const description = "Solana uptime prediction";
-    const endTime = Math.floor(Date.now() / 1000) + 86400;
 
     beforeEach(async function () {
       const creationFee = await predictionMarket.marketCreationFee();
       await predictionMarket.connect(user1).createMarket(
         question,
         description,
-        endTime,
+        futureTime,
         { value: creationFee }
       );
       marketId = 1;
@@ -175,7 +180,8 @@ describe("PredictionMarket", function () {
       await ethers.provider.send("evm_mine");
       
       await expect(predictionMarket.connect(user1).resolveMarket(marketId, true))
-        .to.be.revertedWith("Ownable: caller is not the owner");
+        .to.be.revertedWithCustomError(predictionMarket, "OwnableUnauthorizedAccount")
+        .withArgs(user1.address);
     });
 
     it("Should fail to resolve before end time", async function () {
@@ -193,14 +199,14 @@ describe("PredictionMarket", function () {
     });
 
     it("Should allow owner to update trading fee", async function () {
-      const newFee = ethers.parseEther("0.01"); // 1%
+      const newFee = 10; // 1% (10 basis points)
       
       await predictionMarket.connect(owner).setTradingFee(newFee);
       expect(await predictionMarket.tradingFee()).to.equal(newFee);
     });
 
     it("Should fail to set trading fee above 5%", async function () {
-      const highFee = ethers.parseEther("0.06"); // 6%
+      const highFee = 60; // 6% (60 basis points)
       
       await expect(predictionMarket.connect(owner).setTradingFee(highFee))
         .to.be.revertedWith("Fee cannot exceed 5%");
@@ -218,24 +224,22 @@ describe("PredictionMarket", function () {
   describe("Edge Cases", function () {
     it("Should handle empty question creation", async function () {
       const creationFee = await predictionMarket.marketCreationFee();
-      const endTime = Math.floor(Date.now() / 1000) + 86400;
       
       await expect(predictionMarket.connect(user1).createMarket(
         "",
         "Description",
-        endTime,
+        futureTime,
         { value: creationFee }
       )).to.be.revertedWith("Question cannot be empty");
     });
 
     it("Should handle buying shares with 0 value", async function () {
       const creationFee = await predictionMarket.marketCreationFee();
-      const endTime = Math.floor(Date.now() / 1000) + 86400;
       
       await predictionMarket.connect(user1).createMarket(
         "Test Question",
         "Test Description",
-        endTime,
+        futureTime,
         { value: creationFee }
       );
       

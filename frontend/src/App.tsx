@@ -8,6 +8,7 @@ import Markets from './pages/Markets';
 import CreateMarket from './pages/CreateMarket';
 import MarketDetail from './pages/MarketDetail';
 import Profile from './pages/Profile';
+// import AdminPage from './pages/AdminPage';
 import './App.css';
 
 // Initialize Farcaster SDK
@@ -25,8 +26,9 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/markets" element={<Markets />} />
               <Route path="/create" element={<CreateMarket />} />
-              <Route path="/markets/:id" element={<MarketDetail />} />
+              <Route path="/market/:id" element={<MarketDetail />} />
               <Route path="/profile" element={<Profile />} />
+              {/* <Route path="/admin" element={<AdminPage />} /> */}
             </Routes>
           </Layout>
         </Router>

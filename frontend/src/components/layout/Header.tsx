@@ -1,27 +1,35 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect, useSwitchChain } from 'wagmi';
+import { base } from 'wagmi/chains';
 import ConnectWallet from '../wallet/ConnectWallet';
+import { ADMIN_ADDRESS } from '../../utils/constants';
 
 const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { disconnect } = useDisconnect();
+  const { switchChain } = useSwitchChain();
 
   const handleDisconnect = () => {
     disconnect();
     setIsMobileMenuOpen(false);
   };
 
+  const handleSwitchToBase = () => {
+    switchChain({ chainId: base.id });
+  };
+
   const isActive = (path: string) => location.pathname === path;
+  const isOnBaseNetwork = chainId === base.id;
 
   return (
     <header className="header">
       <nav>
         {/* Logo on the left */}
         <Link to="/" className="logo">
-          <img src="/logo.png" alt="Logo" style={{ width: '40px', height: '40px' }} />
+          <img src="/logo.png" alt="Logo" className="logo-icon" />
         </Link>
 
         {/* Desktop Navigation */}
@@ -36,13 +44,37 @@ const Header: React.FC = () => {
           {/* Only show Create Market and Profile when logged in */}
           {isConnected && (
             <>
-              <Link to="/create-market" className={`nav-link ${isActive('/create-market') ? 'active' : ''}`}>
+              <Link to="/create" className={`nav-link ${isActive('/create') ? 'active' : ''}`}>
                 Create Market
               </Link>
               <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`}>
                 Profile
               </Link>
             </>
+          )}
+          
+          {/* Admin link - only show for admin */}
+          {isConnected && address?.toLowerCase() === ADMIN_ADDRESS.toLowerCase() && (
+            <Link to="/admin" className={`nav-link ${isActive('/admin') ? 'active' : ''}`}>
+              Admin
+            </Link>
+          )}
+          
+          {/* Network Indicator */}
+          {isConnected && (
+            <div className="network-indicator">
+              {isOnBaseNetwork ? (
+                <span className="network-badge base">Base ✓</span>
+              ) : (
+                <button 
+                  onClick={handleSwitchToBase}
+                  className="network-badge wrong-network"
+                  title="Click to switch to Base network"
+                >
+                  {chainId === 1 ? 'ETH' : `Chain ${chainId}`} ⚠️
+                </button>
+              )}
+            </div>
           )}
           
           {/* Wallet section - Connect or Disconnect */}
@@ -105,13 +137,20 @@ const Header: React.FC = () => {
                 {/* Only show Create Market and Profile when logged in on mobile too */}
                 {isConnected && (
                   <>
-                    <Link to="/create-market" className={`nav-link ${isActive('/create-market') ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
+                    <Link to="/create" className={`nav-link ${isActive('/create') ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
                       Create Market
                     </Link>
                     <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
                       Profile
                     </Link>
                   </>
+                )}
+                
+                {/* Admin link - only show for admin on mobile too */}
+                {isConnected && address?.toLowerCase() === ADMIN_ADDRESS.toLowerCase() && (
+                  <Link to="/admin" className={`nav-link ${isActive('/admin') ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}>
+                    Admin
+                  </Link>
                 )}
               </div>
             </div>

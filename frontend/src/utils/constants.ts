@@ -1,3 +1,5 @@
+import { PREDICTION_MARKET_ABI } from './contracts';
+
 // Network Configuration
 export const NETWORKS = {
   BASE_MAINNET: {
@@ -14,11 +16,14 @@ export const NETWORKS = {
 // Contract Configuration
 export const CONTRACTS = {
   PREDICTION_MARKET: {
-    address: import.meta.env.VITE_CONTRACT_ADDRESS || '0x199c954e6Fcc8fa27F21f81Adf48a6504a28006e',
+    address: import.meta.env.VITE_CONTRACT_ADDRESS || '0x08BB4f87925047C143162d36e4daee3078581b21',
     name: 'PredictionMarket',
-    abi: [], // Will be populated from the deployed contract
+    abi: PREDICTION_MARKET_ABI,
   },
 } as const;
+
+// Admin Configuration
+export const ADMIN_ADDRESS = '0x21D654daaB0fe1be0e584980ca7C1a382850939f';
 
 // App Configuration
 export const APP_CONFIG = {
@@ -52,6 +57,10 @@ export const ERROR_MESSAGES = {
   MARKET_NOT_ENDED: 'Market has not ended yet',
   INSUFFICIENT_SHARES: 'Insufficient shares to sell',
   INVALID_AMOUNT: 'Invalid amount provided',
+  ADMIN_ACCESS_REQUIRED: 'Admin access required for this action',
+  MARKET_NOT_ACTIVE: 'Market is not active',
+  ALREADY_CLAIMED: 'Winnings have already been claimed',
+  NO_WINNINGS_TO_CLAIM: 'No winnings to claim for this market',
 } as const;
 
 // Success Messages
@@ -63,4 +72,5 @@ export const SUCCESS_MESSAGES = {
   MARKET_RESOLVED: 'Market resolved successfully',
   Winnings_CLAIMED: 'Winnings claimed successfully',
   FEES_UPDATED: 'Fees updated successfully',
+  ADMIN_CHANGED: 'Admin address changed successfully',
 } as const;
