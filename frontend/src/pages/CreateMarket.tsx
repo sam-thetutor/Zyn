@@ -240,7 +240,7 @@ const CreateMarket: React.FC = () => {
           <div className="card">
             <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Your Balance</h3>
             <div className="text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>
-              {balance ? `${Number(formatEther(balance.value)).toFixed(4)} ETH` : 'Loading...'}
+                              {balance ? `${Number(formatEther(balance.value)).toFixed(4)} CELO` : 'Loading...'}
             </div>
           </div>
           

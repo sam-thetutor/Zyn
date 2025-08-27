@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 async function main() {
-    console.log("🚀 Starting deployment of PredictionMarket contract to Base mainnet...");
+    console.log("🚀 Starting deployment of PredictionMarket contract to Celo Alfajores testnet...");
     
     // Get the deployer account
     const [deployer] = await ethers.getSigners();
@@ -11,14 +11,14 @@ async function main() {
     
     // Get balance using ethers v6 syntax
     const balance = await ethers.provider.getBalance(deployer.address);
-    console.log("💰 Account balance:", ethers.formatEther(balance), "ETH");
+    console.log("💰 Account balance:", ethers.formatEther(balance), "CELO");
     
     // Deploy the PredictionMarket contract
     console.log("📦 Deploying PredictionMarket contract...");
     const PredictionMarket = await ethers.getContractFactory("PredictionMarket");
     const predictionMarket = await PredictionMarket.deploy({
-        gasLimit: 3000000, // Set gas limit to control costs
-        gasPrice: ethers.parseUnits("0.5", "gwei") // 0.5 gwei
+        gasLimit: 3000000 // Set gas limit to control costs
+        // Let Hardhat estimate gas price automatically
     });
     
     await predictionMarket.waitForDeployment();
@@ -38,7 +38,7 @@ async function main() {
     
     // Create deployment info object
     const deploymentInfo = {
-        network: "base-mainnet",
+        network: "celo-alfajores",
         contractName: "PredictionMarket",
         contractAddress: contractAddress,
         deployer: deployer.address,
@@ -63,21 +63,21 @@ async function main() {
     fs.writeFileSync(abiFile, JSON.stringify(contractABI, null, 2));
     console.log("📄 Contract ABI saved to:", abiFile);
     
-    // Verify contract on BaseScan (if available)
-    console.log("\n🔍 To verify your contract on BaseScan:");
-    console.log(`   Visit: https://basescan.org/address/${contractAddress}`);
+    // Verify contract on CeloScan (if available)
+    console.log("\n🔍 To verify your contract on CeloScan:");
+    console.log(`   Visit: https://alfajores.celoscan.io/address/${contractAddress}`);
     console.log(`   Contract Address: ${contractAddress}`);
     
     // Display contract details
     console.log("\n📊 Contract Details:");
-    console.log("   Market Creation Fee:", ethers.formatEther(await predictionMarket.marketCreationFee()), "ETH");
-    console.log("   Trading Fee:", ethers.formatEther(await predictionMarket.tradingFee()), "ETH");
+    console.log("   Market Creation Fee:", ethers.formatEther(await predictionMarket.marketCreationFee()), "CELO");
+    console.log("   Trading Fee:", ethers.formatEther(await predictionMarket.tradingFee()), "CELO");
     console.log("   Owner:", await predictionMarket.owner());
     
     console.log("\n🎉 Deployment completed successfully!");
     console.log("   Contract Address:", contractAddress);
     console.log("   Deployer:", deployer.address);
-    console.log("   Network: Base Mainnet");
+    console.log("   Network: Celo Alfajores Testnet");
 }
 
 main()

@@ -65,9 +65,9 @@ const MarketResolutionModal: React.FC<MarketResolutionModalProps> = ({
             <div className="text-sm text-gray-500 space-y-1">
               <p>Category: {market.category}</p>
               <p>End Time: {formatTime(market.endTime)}</p>
-              <p>Total Pool: {formatEther(market.totalPool)} ETH</p>
-              <p>Yes Shares: {formatEther(market.totalYes)} ETH</p>
-              <p>No Shares: {formatEther(market.totalNo)} ETH</p>
+                      <p>Total Pool: {formatEther(market.totalPool)} CELO</p>
+        <p>Yes Shares: {formatEther(market.totalYes)} CELO</p>
+        <p>No Shares: {formatEther(market.totalNo)} CELO</p>
             </div>
           </div>
         </div>
@@ -90,7 +90,7 @@ const MarketResolutionModal: React.FC<MarketResolutionModalProps> = ({
               />
               <span className="text-lg font-medium text-green-600">Yes</span>
               <span className="ml-2 text-sm text-gray-500">
-                ({formatEther(market.totalYes)} ETH)
+                ({formatEther(market.totalYes)} CELO)
               </span>
             </label>
             <label className="flex items-center">
@@ -105,7 +105,7 @@ const MarketResolutionModal: React.FC<MarketResolutionModalProps> = ({
               />
               <span className="text-lg font-medium text-red-600">No</span>
               <span className="ml-2 text-sm text-gray-500">
-                ({formatEther(market.totalNo)} ETH)
+                ({formatEther(market.totalNo)} CELO)
               </span>
             </label>
           </div>

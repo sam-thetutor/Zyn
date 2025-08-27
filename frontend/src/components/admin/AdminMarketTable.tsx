@@ -183,7 +183,7 @@ const AdminMarketTable: React.FC<AdminMarketTableProps> = ({
                   {formatTime(market.endTime)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {formatEther(market.totalPool)} ETH
+                  {formatEther(market.totalPool)} CELO
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   {canResolve(market) ? (

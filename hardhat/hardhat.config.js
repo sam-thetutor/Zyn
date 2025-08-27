@@ -13,22 +13,29 @@ module.exports = {
     },
   },
   networks: {
-    // Base Mainnet
-    base: {
-      url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
+    // Celo Alfajores Testnet
+    "celo-alfajores": {
+      url: process.env.CELO_ALFAJORES_RPC_URL || "https://alfajores-forno.celo-testnet.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 8453,
-      gasPrice: 500000000, // 0.5 gwei - reduced from 1 gwei
+      chainId: 44787,
       timeout: 60000,
     },
+    // Base Mainnet (commented out for now)
+    // base: {
+    //   url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
+    //   accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    //   chainId: 8453,
+    //   gasPrice: 500000000, // 0.5 gwei - reduced from 1 gwei
+    //   timeout: 60000,
+    // },
     // Base Sepolia Testnet (for testing)
-    "base-sepolia": {
-      url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 84532,
-      gasPrice: 1000000000, // 1 gwei
-      timeout: 60000,
-    },
+    // "base-sepolia": {
+    //   url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
+    //   accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+    //   chainId: 84532,
+    //   gasPrice: 1000000000, // 1 gwei
+    //   timeout: 60000,
+    // },
     // Local development
     hardhat: {
       chainId: 31337,
@@ -36,26 +43,35 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
-      base: process.env.BASESCAN_API_KEY || "",
-      "base-sepolia": process.env.BASESCAN_API_KEY || "",
+      "celo-alfajores": process.env.CELOSCAN_API_KEY || "",
+      // base: process.env.BASESCAN_API_KEY || "",
+      // "base-sepolia": process.env.BASESCAN_API_KEY || "",
     },
     customChains: [
       {
-        network: "base",
-        chainId: 8453,
+        network: "celo-alfajores",
+        chainId: 44787,
         urls: {
-          apiURL: "https://api.basescan.org/api",
-          browserURL: "https://basescan.org",
+          apiURL: "https://api-alfajores.celoscan.io/api",
+          browserURL: "https://alfajores.celoscan.io",
         },
       },
-      {
-        network: "base-sepolia",
-        chainId: 84532,
-        urls: {
-          apiURL: "https://api-sepolia.basescan.org/api",
-          browserURL: "https://sepolia.basescan.org",
-        },
-      },
+      // {
+      //   network: "base",
+      //   chainId: 8453,
+      //   urls: {
+      //     apiURL: "https://api.basescan.org/api",
+      //     browserURL: "https://basescan.org",
+      //   },
+      // },
+      // {
+      //   network: "base-sepolia",
+      //   chainId: 84532,
+      //   urls: {
+      //     apiURL: "https://api-sepolia.basescan.org/api",
+      //     browserURL: "https://sepolia.basescan.org",
+      //   },
+      // },
     ],
   },
   gasReporter: {

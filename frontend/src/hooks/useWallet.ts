@@ -11,7 +11,7 @@ export const useWallet = () => {
   });
 
   // Check if connected to correct network
-  const isCorrectNetwork = chainId === NETWORKS.BASE_MAINNET.chainId;
+  const isCorrectNetwork = chainId === NETWORKS.CELO_ALFAJORES.chainId || chainId === NETWORKS.BASE_MAINNET.chainId;
   
   // Check if wallet is ready for transactions
   const isReady = isConnected && isCorrectNetwork && address;
@@ -21,7 +21,25 @@ export const useWallet = () => {
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
     : '';
 
+  // Get current network info
+  const getCurrentNetwork = () => {
+    if (chainId === NETWORKS.CELO_ALFAJORES.chainId) {
+      return NETWORKS.CELO_ALFAJORES;
+    } else if (chainId === NETWORKS.BASE_MAINNET.chainId) {
+      return NETWORKS.BASE_MAINNET;
+    }
+    return null;
+  };
+
+  const currentNetwork = getCurrentNetwork();
+
   // Network switching
+  const switchToCelo = () => {
+    if (switchChain) {
+      switchChain({ chainId: NETWORKS.CELO_ALFAJORES.chainId });
+    }
+  };
+
   const switchToBase = () => {
     if (switchChain) {
       switchChain({ chainId: NETWORKS.BASE_MAINNET.chainId });
@@ -31,7 +49,7 @@ export const useWallet = () => {
   // Format balance for display
   const formattedBalance = balance 
     ? `${parseFloat(balance.formatted).toFixed(4)} ${balance.symbol}`
-    : '0 ETH';
+    : `0 ${currentNetwork?.currencySymbol || 'CELO'}`;
 
   return {
     // Connection state
@@ -55,9 +73,11 @@ export const useWallet = () => {
     shortAddress,
     
     // Actions
+    switchToCelo,
     switchToBase,
     
     // Network info
-    targetNetwork: NETWORKS.BASE_MAINNET,
+    currentNetwork,
+    targetNetwork: NETWORKS.CELO_ALFAJORES,
   };
 };

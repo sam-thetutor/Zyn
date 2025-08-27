@@ -2,6 +2,15 @@ import { PREDICTION_MARKET_ABI } from './contracts';
 
 // Network Configuration
 export const NETWORKS = {
+  CELO_ALFAJORES: {
+    chainId: 44787,
+    id: 44787,
+    name: 'Celo Alfajores Testnet',
+    rpcUrl: import.meta.env.VITE_CELO_ALFAJORES_RPC_URL || 'https://alfajores-forno.celo-testnet.org',
+    explorer: import.meta.env.VITE_CELOSCAN_URL || 'https://alfajores.celoscan.io',
+    currency: 'CELO',
+    currencySymbol: 'CELO',
+  },
   BASE_MAINNET: {
     chainId: 8453,
     id: 8453,
@@ -16,9 +25,18 @@ export const NETWORKS = {
 // Contract Configuration
 export const CONTRACTS = {
   PREDICTION_MARKET: {
-    address: import.meta.env.VITE_CONTRACT_ADDRESS || '0x08BB4f87925047C143162d36e4daee3078581b21',
-    name: 'PredictionMarket',
-    abi: PREDICTION_MARKET_ABI,
+    // Celo Alfajores contract
+    CELO_ALFAJORES: {
+      address: import.meta.env.VITE_CELO_CONTRACT_ADDRESS || '0x0C49604c65588858DC206AAC6EFEc0F8Afe2d1d6',
+      name: 'PredictionMarket',
+      abi: PREDICTION_MARKET_ABI,
+    },
+    // Base Mainnet contract (placeholder - needs to be deployed)
+    BASE_MAINNET: {
+      address: import.meta.env.VITE_BASE_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000',
+      name: 'PredictionMarket',
+      abi: PREDICTION_MARKET_ABI,
+    },
   },
 } as const;
 
@@ -28,7 +46,7 @@ export const ADMIN_ADDRESS = '0x21D654daaB0fe1be0e584980ca7C1a382850939f';
 // App Configuration
 export const APP_CONFIG = {
   name: 'Zyn',
-  description: 'Decentralized prediction markets on Base',
+  description: 'Decentralized prediction markets on Celo',
   version: '1.0.0',
   defaultMarketDuration: 24 * 60 * 60, // 24 hours in seconds
   maxMarketDuration: 30 * 24 * 60 * 60, // 30 days in seconds
@@ -49,7 +67,7 @@ export const UI_CONFIG = {
 // Error Messages
 export const ERROR_MESSAGES = {
   WALLET_NOT_CONNECTED: 'Please connect your wallet to continue',
-  WRONG_NETWORK: 'Please switch to Base Mainnet',
+  WRONG_NETWORK: 'Please switch to Celo Alfajores Testnet',
   INSUFFICIENT_BALANCE: 'Insufficient balance for this transaction',
   TRANSACTION_FAILED: 'Transaction failed. Please try again',
   MARKET_NOT_FOUND: 'Market not found',

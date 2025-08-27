@@ -48,13 +48,13 @@ const AdminStats: React.FC<AdminStatsProps> = ({ markets }) => {
     },
     {
       title: 'Total Pool Value',
-      value: `${formatEther(totalPoolValue)} ETH`,
+              value: `${formatEther(totalPoolValue)} CELO`,
       description: 'All market pools combined',
       color: 'bg-indigo-500',
     },
     {
       title: 'Active Pool Value',
-      value: `${formatEther(activePoolValue)} ETH`,
+              value: `${formatEther(activePoolValue)} CELO`,
       description: 'Value in active markets',
       color: 'bg-teal-500',
     },

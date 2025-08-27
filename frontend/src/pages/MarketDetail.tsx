@@ -332,7 +332,7 @@ const MarketDetail: React.FC = () => {
               <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-primary)' }}>
                 {formatEther(totalVolume)}
               </div>
-              <div className="text-sm text-secondary">Total Volume (ETH)</div>
+              <div className="text-sm text-secondary">Total Volume (CELO)</div>
             </div>
           </div>
 
@@ -467,7 +467,7 @@ const MarketDetail: React.FC = () => {
                 
                 <div className="mb-4">
                   <label htmlFor="amount" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    Amount (ETH)
+                    Amount (CELO)
                   </label>
                   <input
                     type="number"
@@ -484,7 +484,7 @@ const MarketDetail: React.FC = () => {
                 <div className="mb-6 p-3 rounded-lg" style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
                   <div className="text-sm text-secondary mb-1">Trading Fee:</div>
                   <div className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {tradingFee ? formatFee(tradingFee) : 'Loading...'} ETH
+                    {tradingFee ? formatFee(tradingFee) : 'Loading...'} CELO
                   </div>
                 </div>
 

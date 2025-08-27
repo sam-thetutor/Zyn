@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAccount, useBalance, useSwitchChain } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { celoAlfajores } from 'wagmi/chains';
 import { formatEther } from 'viem';
 import { useUserActivity } from '../hooks/useUserActivity';
 import UserActivityStats from '../components/profile/UserActivityStats';
@@ -21,7 +21,7 @@ const Profile: React.FC = () => {
     stats: activityStats
   } = useUserActivity();
 
-  const isOnBaseNetwork = chainId === base.id; // 8453
+  const isOnCeloNetwork = chainId === celoAlfajores.id; // 44787
 
   if (!isConnected) {
     return (
@@ -36,7 +36,7 @@ const Profile: React.FC = () => {
     );
   }
 
-  if (!isOnBaseNetwork) {
+  if (!isOnCeloNetwork) {
     return (
       <div className="container">
         <div className="mt-8 mb-8">
@@ -55,7 +55,7 @@ const Profile: React.FC = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-secondary">Required Network:</span>
-              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>Base Mainnet (Chain ID: 8453)</span>
+                              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>Celo Alfajores Testnet (Chain ID: 44787)</span>
             </div>
             <div className="flex justify-between">
               <span className="text-secondary">Wallet Address:</span>
@@ -65,13 +65,13 @@ const Profile: React.FC = () => {
           
           <div className="mb-4">
             <p className="text-secondary mb-4">
-              Your wallet is connected to the wrong network. Please switch to Base network to view your profile and balance.
+              Your wallet is connected to the wrong network. Please switch to Celo Alfajores testnet to view your profile and balance.
             </p>
             <button 
-              onClick={() => switchChain({ chainId: base.id })}
+              onClick={() => switchChain({ chainId: celoAlfajores.id })}
               className="btn-primary"
             >
-              Switch to Base Network
+              Switch to Celo Alfajores Testnet
             </button>
           </div>
         </div>
@@ -100,7 +100,7 @@ const Profile: React.FC = () => {
             <div className="flex justify-between">
               <span className="text-secondary">Network:</span>
               <span className="font-medium" style={{ color: 'var(--color-accent)' }}>
-                Base Mainnet ✓
+                Celo Alfajores ✓
               </span>
             </div>
             <div className="flex justify-between">
@@ -130,7 +130,7 @@ const Profile: React.FC = () => {
             ) : balance ? (
               <div>
                 <div className="text-3xl font-bold mb-2" style={{ color: 'var(--color-accent)' }}>
-                  {Number(formatEther(balance.value)).toFixed(4)} ETH
+                  {Number(formatEther(balance.value)).toFixed(4)} CELO
                 </div>
                 <div className="text-sm text-secondary">
                   ≈ ${(Number(formatEther(balance.value)) * 2000).toFixed(2)} USD

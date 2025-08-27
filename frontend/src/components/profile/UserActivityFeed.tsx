@@ -89,13 +89,13 @@ const UserActivityFeed: React.FC<UserActivityFeedProps> = ({
       case 'shares_bought':
         const outcome = activity.details.outcome ? 'Yes' : 'No';
         const amount = activity.details.amount ? formatEther(activity.details.amount) : '0';
-        return `Bought ${amount} ETH worth of ${outcome} shares`;
+        return `Bought ${amount} CELO worth of ${outcome} shares`;
       case 'market_resolved':
         const result = activity.details.outcomeResult ? 'Yes' : 'No';
         return `Market resolved with outcome: ${result}`;
       case 'winnings_claimed':
         const winnings = activity.details.winnings ? formatEther(activity.details.winnings) : '0';
-        return `Claimed ${winnings} ETH in winnings`;
+        return `Claimed ${winnings} CELO in winnings`;
       default:
         return 'Activity performed';
     }
@@ -310,7 +310,7 @@ const UserActivityFeed: React.FC<UserActivityFeedProps> = ({
             {/* Transaction Link */}
             <div className="flex-shrink-0">
               <a
-                href={`https://basescan.org/tx/${activity.transactionHash}`}
+                href={`https://alfajores.celoscan.io/tx/${activity.transactionHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline"

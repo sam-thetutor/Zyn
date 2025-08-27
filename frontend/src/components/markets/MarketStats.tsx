@@ -47,7 +47,7 @@ const MarketStats: React.FC<MarketStatsProps> = ({ stats }) => {
     },
     {
       label: 'Total Volume',
-      value: `${formattedVolume} ETH`,
+              value: `${formattedVolume} CELO`,
       color: 'var(--color-warning)',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

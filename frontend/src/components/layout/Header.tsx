@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAccount, useDisconnect, useSwitchChain } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { celoAlfajores } from 'wagmi/chains';
 import ConnectWallet from '../wallet/ConnectWallet';
+import NetworkSwitcher from './NetworkSwitcher';
 import { ADMIN_ADDRESS } from '../../utils/constants';
 
 const Header: React.FC = () => {
@@ -17,12 +18,7 @@ const Header: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
-  const handleSwitchToBase = () => {
-    switchChain({ chainId: base.id });
-  };
-
   const isActive = (path: string) => location.pathname === path;
-  const isOnBaseNetwork = chainId === base.id;
 
   return (
     <header className="header">
@@ -60,21 +56,9 @@ const Header: React.FC = () => {
             </Link>
           )}
           
-          {/* Network Indicator */}
+          {/* Network Switcher */}
           {isConnected && (
-            <div className="network-indicator">
-              {isOnBaseNetwork ? (
-                <span className="network-badge base">Base ✓</span>
-              ) : (
-                <button 
-                  onClick={handleSwitchToBase}
-                  className="network-badge wrong-network"
-                  title="Click to switch to Base network"
-                >
-                  {chainId === 1 ? 'ETH' : `Chain ${chainId}`} ⚠️
-                </button>
-              )}
-            </div>
+            <NetworkSwitcher />
           )}
           
           {/* Wallet section - Connect or Disconnect */}

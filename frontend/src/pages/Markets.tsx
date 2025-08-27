@@ -31,7 +31,7 @@ const Markets: React.FC = () => {
     totalMarkets
   } = useMarkets();
   
-  const { isConnected, isCorrectNetwork, switchToBase } = useWallet();
+  const { isConnected, isCorrectNetwork, switchToCelo } = useWallet();
 
   useEffect(() => {
     // Scroll to top when page changes
@@ -77,10 +77,10 @@ const Markets: React.FC = () => {
             <div className="ml-3">
               <h3 className="text-sm font-medium" style={{ color: '#92400e' }}>Wrong Network</h3>
               <p className="text-sm mt-1" style={{ color: '#92400e' }}>
-                Please switch to Base Mainnet to interact with markets.
+                Please switch to Celo Alfajores Testnet to interact with markets.
               </p>
               <button
-                onClick={switchToBase}
+                onClick={switchToCelo}
                 className="mt-2 px-3 py-1 rounded text-sm transition-all duration-200"
                 style={{ backgroundColor: '#f59e0b', color: 'white' }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d97706'}
@@ -175,10 +175,10 @@ const Markets: React.FC = () => {
                 style={{ minWidth: '120px' }}
               >
                 <option value="all">All</option>
-                <option value="low">Low (&lt;0.1 ETH)</option>
-                <option value="medium">Medium (0.1-1 ETH)</option>
-                <option value="high">High (1-10 ETH)</option>
-                <option value="veryHigh">Very High (&gt;10 ETH)</option>
+                <option value="low">Low (&lt;0.1 CELO)</option>
+                <option value="medium">Medium (0.1-1 CELO)</option>
+                <option value="high">High (1-10 CELO)</option>
+                <option value="veryHigh">Very High (&gt;10 CELO)</option>
               </select>
             </div>
           </div>

@@ -146,7 +146,7 @@ const MarketCard: React.FC<MarketCardProps> = ({ market }) => {
         <div className="flex justify-between items-center text-xs">
           <span className="text-secondary">by Creator</span>
           <span className="text-secondary">
-            ~${(Number(formatEther(totalShares)) * 2000).toFixed(0)} volume
+                            ~${(Number(formatEther(totalShares)) * 1).toFixed(0)} volume
           </span>
         </div>
       </div>

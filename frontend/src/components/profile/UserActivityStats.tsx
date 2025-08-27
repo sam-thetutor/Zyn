@@ -67,7 +67,7 @@ const UserActivityStats: React.FC<UserActivityStatsProps> = ({ stats }) => {
     },
     {
       title: 'Total Winnings',
-      value: `${formatWinnings(stats.totalWinnings)} ETH`,
+              value: `${formatWinnings(stats.totalWinnings)} CELO`,
       description: 'Winnings claimed from resolved markets',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,7 +99,7 @@ const UserActivityStats: React.FC<UserActivityStatsProps> = ({ stats }) => {
     },
     {
       label: 'Avg Winnings',
-      value: `${avgWinnings.toFixed(4)} ETH`,
+              value: `${avgWinnings.toFixed(4)} CELO`,
       description: 'Average winnings per resolved market',
       color: 'var(--color-secondary)',
     },
@@ -170,7 +170,7 @@ const UserActivityStats: React.FC<UserActivityStatsProps> = ({ stats }) => {
           </div>
           <div className="text-right">
             <div className={`text-3xl font-bold ${getWinningsColor(stats.totalWinnings)}`}>
-              {formatWinnings(stats.totalWinnings)} ETH
+              {formatWinnings(stats.totalWinnings)} CELO
             </div>
             <div className="text-sm text-secondary">
               ≈ ${(Number(formatWinnings(stats.totalWinnings)) * 2000).toFixed(2)} USD
@@ -203,7 +203,7 @@ const UserActivityStats: React.FC<UserActivityStatsProps> = ({ stats }) => {
             )}
             {stats.totalWinnings > 0n && (
               <p className="text-secondary">
-                🎉 You've earned <span className="font-medium text-green-600">{formatWinnings(stats.totalWinnings)} ETH</span> in total winnings
+                🎉 You've earned <span className="font-medium text-green-600">{formatWinnings(stats.totalWinnings)} CELO</span> in total winnings
               </p>
             )}
             {stats.totalWinnings === 0n && stats.totalResolved > 0 && (
