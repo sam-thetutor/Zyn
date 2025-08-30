@@ -4,6 +4,19 @@
 /* Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+/* Global Page Width Constraint */
+.page-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.root {
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+}
+
 /* Base Tailwind CSS only - no custom CSS */
 
 
