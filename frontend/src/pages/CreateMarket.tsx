@@ -11,6 +11,7 @@ interface CreateMarketForm {
   description: string;
   category: string;
   image: string;
+  source: string;
   endTime: string;
   endDate: string;
 }
@@ -33,13 +34,14 @@ const CreateMarket: React.FC = () => {
     description: '',
     category: '',
     image: '',
+    source: '',
     endTime: '',
     endDate: ''
   });
 
   const [validationErrors, setValidationErrors] = useState<Partial<CreateMarketForm>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCreating, setIsCreating] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Predefined categories
   const categories = [
@@ -53,14 +55,13 @@ const CreateMarket: React.FC = () => {
     'Other'
   ];
 
-  // Set minimum date to tomorrow
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const minDate = tomorrow.toISOString().split('T')[0];
+  // Set minimum date to today (for testing)
+  const today = new Date();
+  const minDate = today.toISOString().split('T')[0];
 
-  // Set minimum time to current time + 1 hour
+  // Set minimum time to current time + 3 minutes (for testing)
   const now = new Date();
-  now.setHours(now.getHours() + 1);
+  now.setMinutes(now.getMinutes() + 3);
   const minTime = now.toTimeString().slice(0, 5);
 
   useEffect(() => {
@@ -101,12 +102,13 @@ const CreateMarket: React.FC = () => {
       errors.endTime = 'End time is required';
     }
 
-    // Check if end date/time is in the future
+    // Check if end date/time is at least 3 minutes in the future (for testing)
     if (formData.endDate && formData.endTime) {
       const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
       const now = new Date();
-      if (endDateTime <= now) {
-        errors.endTime = 'End date and time must be in the future';
+      const minTime = new Date(now.getTime() + 3 * 60 * 1000); // 3 minutes from now
+      if (endDateTime <= minTime) {
+        errors.endTime = 'End date and time must be at least 3 minutes in the future';
       }
     }
 
@@ -146,12 +148,17 @@ const CreateMarket: React.FC = () => {
       const endTimestamp = Math.floor(endDateTime.getTime() / 1000);
 
       // Create market
+      // Process source links - join multiple lines with separator, or use address as fallback
+      const sourceLinks = formData.source.trim() 
+        ? formData.source.split('\n').filter(link => link.trim()).join(' | ')
+        : address || '0x0000000000000000000000000000000000000000';
+      
       await createMarket(
         formData.question,
         formData.description,
         formData.category,
         formData.image || 'https://via.placeholder.com/400x300?text=Market+Image',
-        address || '0x0000000000000000000000000000000000000000', // source
+        sourceLinks, // source
         BigInt(endTimestamp),
         parseEther('0.001') // value - market creation fee
       );
@@ -318,6 +325,24 @@ const CreateMarket: React.FC = () => {
               </div>
             </div>
 
+            {/* Source Links */}
+            <div>
+              <label htmlFor="source" className="block text-sm font-medium text-gray-700 mb-2">
+                Source Links (Optional)
+              </label>
+              <textarea
+                id="source"
+                value={formData.source}
+                onChange={(e) => handleInputChange('source', e.target.value)}
+                placeholder="https://example.com/news-article&#10;https://example.com/research-paper&#10;https://example.com/data-source"
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Enter multiple source links, one per line. These can be news articles, research papers, or other relevant sources.
+              </p>
+            </div>
+
             {/* End Date and Time Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* End Date */}
@@ -384,6 +409,26 @@ const CreateMarket: React.FC = () => {
                       </span>
                     </div>
                   )}
+                  {formData.source && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-600">Sources:</span>
+                      <div className="mt-1 space-y-1">
+                        {formData.source.split('\n').filter(link => link.trim()).map((link, index) => (
+                          <div key={index} className="flex items-start">
+                            <span className="text-gray-500 mr-2">•</span>
+                            <a 
+                              href={link.trim()} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 underline break-all text-sm"
+                            >
+                              {link.trim()}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {formData.endDate && formData.endTime && (
                     <div>
                       <span className="text-sm font-medium text-gray-600">Ends:</span>
@@ -448,3 +493,6 @@ const CreateMarket: React.FC = () => {
 };
 
 export default CreateMarket;
+
+
+

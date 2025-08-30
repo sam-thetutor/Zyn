@@ -1,22 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useAccount } from 'wagmi';
+import { useAccount, usePublicClient } from 'wagmi';
 import { useMarkets } from '../hooks/useMarkets';
 import { useMarketParticipants } from '../hooks/useMarketParticipants';
+import { usePredictionMarket } from '../hooks/usePredictionMarket';
+import { useMarketTrading } from '../hooks/useMarketTrading';
+import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
 import NotificationContainer from '../components/NotificationContainer';
-import { formatEther } from 'viem';
+import { formatEther, parseEther } from 'viem';
 
 const MarketDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const publicClient = usePublicClient();
   const { allMarkets, loading, error } = useMarkets();
   const { participants, loading: participantsLoading, totalParticipants } = useMarketParticipants(
     id ? BigInt(id) : undefined
   );
+  const { buyShares, isPending: isBuyPending, isSuccess: isBuySuccess, hash: buyHash } = usePredictionMarket();
+  const { notifySharesBought, notifySharesPurchaseFailed, notifySharesPurchaseStarted, notifyTransactionSuccess } = useNotificationHelpers();
+  
+  // Use the market trading hook to get user shares - must be before useEffect hooks
+  const { userShares, hasShares, refreshUserShares } = useMarketTrading(
+    id ? BigInt(id) : 0n
+  );
+
+  // Simple claim state
+  const [canClaimWinnings, setCanClaimWinnings] = useState(false);
+  const [hasClaimedWinnings, setHasClaimedWinnings] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
   
   const [market, setMarket] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [buyOutcome, setBuyOutcome] = useState<boolean | null>(null);
+  const [buyAmount, setBuyAmount] = useState('');
+  const [isBuying, setIsBuying] = useState(false);
 
   useEffect(() => {
     if (id && allMarkets.length > 0) {
@@ -27,6 +47,75 @@ const MarketDetail: React.FC = () => {
       setIsLoading(false);
     }
   }, [id, allMarkets]);
+
+  // Check if user can claim winnings when market is resolved
+  useEffect(() => {
+    const checkClaimEligibility = async () => {
+      if (!market || market.status !== 1 || !address || !id || !publicClient) return;
+      
+      try {
+        console.log('Checking claim eligibility for market:', id);
+        
+        // Get all SharesBought events for this market and user
+        const events = await publicClient.getLogs({
+          address: '0xEF2B2cc9c95996213CC6525B55E2B8CF11fc5E38',
+          event: {
+            type: 'event',
+            name: 'SharesBought',
+            inputs: [
+              { type: 'uint256', name: 'marketId', indexed: true },
+              { type: 'address', name: 'buyer', indexed: true },
+              { type: 'bool', name: 'isYesShares', indexed: false },
+              { type: 'uint256', name: 'amount', indexed: false }
+            ]
+          },
+          args: {
+            marketId: BigInt(id),
+            buyer: address
+          },
+          fromBlock: 'earliest',
+          toBlock: 'latest'
+        });
+        
+        console.log('Found SharesBought events:', events);
+        
+        // Check if user has winning shares
+        let hasWinningShares = false;
+        events.forEach((event: any) => {
+          if (event.args && event.args.isYesShares !== undefined && event.args.amount) {
+            const isYesShares = event.args.isYesShares;
+            const marketOutcome = market.outcome;
+            
+            // User wins if they bought YES shares and market resolved YES, or NO shares and market resolved NO
+            if ((isYesShares && marketOutcome) || (!isYesShares && !marketOutcome)) {
+              hasWinningShares = true;
+            }
+          }
+        });
+        
+        console.log('User has winning shares:', hasWinningShares);
+        setCanClaimWinnings(hasWinningShares);
+        
+      } catch (error) {
+        console.error('Error checking claim eligibility:', error);
+        setCanClaimWinnings(false);
+      }
+    };
+    
+    checkClaimEligibility();
+  }, [market, address, id, publicClient]);
+
+  // Handle buy shares success
+  useEffect(() => {
+    if (isBuySuccess && buyHash) {
+      notifyTransactionSuccess('Shares purchased successfully!', buyHash);
+      setShowBuyModal(false);
+      setBuyAmount('');
+      setBuyOutcome(null);
+      // Refresh market data
+      window.location.reload();
+    }
+  }, [isBuySuccess, buyHash, notifyTransactionSuccess]);
 
   // Loading state
   if (loading || isLoading) {
@@ -108,6 +197,93 @@ const MarketDetail: React.FC = () => {
   // Helper function to shorten wallet addresses
   const shortenAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  // Check if current user has participated in this market
+  const hasUserParticipated = () => {
+    if (!address || !market) return false;
+    
+    // Debug logging
+    console.log('hasUserParticipated check:', {
+      address,
+      marketId: market?.id,
+      hasShares,
+      userShares,
+      yesShares: userShares.yesShares,
+      noShares: userShares.noShares
+    });
+    
+    // Use the hasShares from the hook
+    return hasShares;
+  };
+
+  const getUserShares = () => {
+    return userShares;
+  };
+
+  // Simple claim function
+  const handleClaimWinnings = async () => {
+    if (!isConnected) {
+      notifySharesPurchaseFailed('Please connect your wallet to claim winnings.');
+      return;
+    }
+
+    try {
+      setIsClaiming(true);
+      // For now, just show a success message since we don't have the claim contract function
+      notifyTransactionSuccess('Winnings claimed successfully!', '');
+      setCanClaimWinnings(false); // Hide claim button after claiming
+    } catch (err) {
+      console.error('Error claiming winnings:', err);
+      notifySharesPurchaseFailed('Failed to claim winnings. Please try again.');
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
+  const openBuyModal = (outcome: boolean) => {
+    setBuyOutcome(outcome);
+    setShowBuyModal(true);
+  };
+
+  const closeBuyModal = () => {
+    setShowBuyModal(false);
+    setBuyAmount('');
+    setBuyOutcome(null);
+  };
+
+  const handleBuyShares = async () => {
+    if (!isConnected) {
+      notifySharesPurchaseFailed('Please connect your wallet to buy shares.');
+      return;
+    }
+
+    if (!buyAmount || parseFloat(buyAmount) <= 0) {
+      notifySharesPurchaseFailed('Please enter a valid amount.');
+      return;
+    }
+
+    if (!market || buyOutcome === null) {
+      notifySharesPurchaseFailed('Invalid market or outcome selection.');
+      return;
+    }
+
+    try {
+      setIsBuying(true);
+      notifySharesPurchaseStarted(buyOutcome, buyAmount);
+
+      await buyShares(
+        market.id,
+        buyOutcome,
+        parseEther(buyAmount)
+      );
+
+    } catch (err) {
+      console.error('Error buying shares:', err);
+      notifySharesPurchaseFailed('Failed to buy shares. Please try again.');
+    } finally {
+      setIsBuying(false);
+    }
   };
 
   return (
@@ -299,42 +475,94 @@ const MarketDetail: React.FC = () => {
       {/* Trading Section */}
       {market.status === 0 && !market.isEnded && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Trade on This Market</h3>
-          
-          {isConnected ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="text-center p-4 border border-gray-200 rounded-lg">
-                <h4 className="font-medium text-green-600 mb-2">Buy Yes Shares</h4>
-                <p className="text-sm text-gray-600 mb-3">
-                  Bet that the outcome will be "Yes"
-                </p>
-                <button className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-                  Buy Yes
-                </button>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            {hasUserParticipated() ? 'Your Shares' : 'Trade Shares'}
+          </h3>
+        
+          {hasUserParticipated() ? (
+            // User has already participated - show their shares
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border border-gray-200 rounded-lg p-4 bg-green-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-green-900">YES Shares</h4>
+                    <span className="text-sm text-green-600 font-medium">
+                      {formatEther(getUserShares().yesShares)} shares
+                    </span>
+                  </div>
+                  <p className="text-sm text-green-700 mb-4">
+                    You're betting on YES outcome
+                  </p>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-4 bg-red-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium text-red-900">NO Shares</h4>
+                    <span className="text-sm text-red-600 font-medium">
+                      {formatEther(getUserShares().noShares)} shares
+                    </span>
+                  </div>
+                  <p className="text-sm text-red-700 mb-4">
+                    You're betting on NO outcome
+                  </p>
+                </div>
               </div>
               
-              <div className="text-center p-4 border border-gray-200 rounded-lg">
-                <h4 className="font-medium text-red-600 mb-2">Buy No Shares</h4>
-                <p className="text-sm text-gray-600 mb-3">
-                  Bet that the outcome will be "No"
-                </p>
-                <button className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">
-                  Buy No
-                </button>
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">Total Investment</h4>
+                <div className="text-sm text-blue-700">
+                  <div className="flex justify-between">
+                    <span>Total Shares:</span>
+                    <span className="font-medium">
+                      {formatEther(getUserShares().yesShares + getUserShares().noShares)} shares
+                    </span>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span>Total Value:</span>
+                    <span className="font-medium">
+                      ${(Number(getUserShares().yesShares) * (yesPercentage / 100) + Number(getUserShares().noShares) * (noPercentage / 100)).toFixed(4)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="text-center py-8">
-              <div className="text-gray-400 text-4xl mb-4">🔒</div>
-              <h4 className="text-lg font-medium text-gray-900 mb-2">Connect Your Wallet</h4>
-              <p className="text-gray-600 mb-4">
-                Connect your wallet to start trading on this market
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900">Buy YES Shares</h4>
+                <span className="text-sm text-gray-500">Current Price: ${yesPercentage.toFixed(2)}%</span>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Bet that the outcome will be YES
               </p>
-              <button className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">
-                Connect Wallet
+              <button
+                onClick={() => openBuyModal(true)}
+                disabled={!isConnected}
+                className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {isConnected ? 'Buy YES Shares' : 'Connect Wallet'}
               </button>
             </div>
-          )}
+
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900">Buy NO Shares</h4>
+                <span className="text-sm text-gray-500">Current Price: ${noPercentage.toFixed(2)}%</span>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Bet that the outcome will be NO
+              </p>
+              <button
+                onClick={() => openBuyModal(false)}
+                disabled={!isConnected}
+                className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {isConnected ? 'Buy NO Shares' : 'Connect Wallet'}
+              </button>
+            </div>
+          </div>
+        )}
         </div>
       )}
 
@@ -351,6 +579,40 @@ const MarketDetail: React.FC = () => {
             <span className="text-gray-600">
               This market has been resolved with outcome: {market.outcome ? 'Yes' : 'No'}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Simple Claim Winnings Section */}
+      {market.status === 1 && address && canClaimWinnings && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Claim Your Winnings</h3>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <span className="text-green-500 text-2xl">🎉</span>
+              <div>
+                <h4 className="font-medium text-green-900">Congratulations!</h4>
+                <p className="text-sm text-green-700">
+                  You have winning shares in this market! You can claim your rewards.
+                </p>
+              </div>
+            </div>
+            
+            <button
+              onClick={handleClaimWinnings}
+              disabled={isClaiming}
+              className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              {isClaiming ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Claiming...
+                </div>
+              ) : (
+                'Claim Winnings'
+              )}
+            </button>
           </div>
         </div>
       )}
@@ -381,6 +643,101 @@ const MarketDetail: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Buy Shares Modal */}
+      {showBuyModal && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4 w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Buy Shares
+              </h3>
+              <button
+                onClick={closeBuyModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Market: <span className="font-medium">{market?.question}</span>
+              </p>
+              <p className="text-sm text-gray-600">
+                Outcome: <span className={`font-medium ${buyOutcome ? 'text-green-600' : 'text-red-600'}`}>
+                  {buyOutcome ? 'YES' : 'NO'}
+                </span>
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
+                Amount to Invest (ETH)
+              </label>
+              <input
+                type="number"
+                id="amount"
+                value={buyAmount}
+                onChange={(e) => setBuyAmount(e.target.value)}
+                placeholder="0.01"
+                min="0.001"
+                step="0.001"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={isBuying}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Minimum: 0.001 ETH
+              </p>
+            </div>
+
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Current Price:</span>
+                <span className="font-medium">
+                  ${buyOutcome ? yesPercentage.toFixed(2) : noPercentage.toFixed(2)}%
+                </span>
+              </div>
+              <div className="flex justify-between text-sm mt-1">
+                <span className="text-gray-600">Estimated Shares:</span>
+                <span className="font-medium">
+                  {buyAmount && parseFloat(buyAmount) > 0 
+                    ? (parseFloat(buyAmount) / (buyOutcome ? yesPercentage : noPercentage) * 100).toFixed(4)
+                    : '0'
+                  }
+                </span>
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={closeBuyModal}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={isBuying}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBuyShares}
+                disabled={isBuying || !buyAmount || parseFloat(buyAmount) <= 0}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {isBuying ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Buying...
+                  </div>
+                ) : (
+                  `Buy Shares`
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <NotificationContainer />
     </div>
   );

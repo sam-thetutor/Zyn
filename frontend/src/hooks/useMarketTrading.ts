@@ -1,11 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { usePredictionMarket } from './usePredictionMarket';
 import { useAccount } from 'wagmi';
+import { usePublicClient } from 'wagmi';
 import { parseEther } from 'viem';
 
 export const useMarketTrading = (marketId: bigint) => {
-  const { buyShares, getUserShares, getUserParticipation } = usePredictionMarket();
+  const { buyShares, getUserParticipation } = usePredictionMarket();
   const { address: userAddress } = useAccount();
+  const publicClient = usePublicClient();
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,21 +38,59 @@ export const useMarketTrading = (marketId: bigint) => {
     }
   }, [marketId, userAddress, buyShares]);
 
-  // Refresh user shares for the current market
+  // Refresh user shares for the current market by fetching from events
   const refreshUserShares = useCallback(async () => {
-    if (!marketId || !userAddress) return;
+    if (!marketId || !userAddress || !publicClient) return;
     
     try {
-      const [yesShares, noShares] = await Promise.all([
-        getUserShares(marketId, userAddress, true),
-        getUserShares(marketId, userAddress, false)
-      ]);
+      console.log('refreshUserShares: Fetching shares from events for market:', marketId.toString(), 'user:', userAddress);
       
-      setUserShares({ yesShares: yesShares || 0n, noShares: noShares || 0n });
+      // Get all SharesBought events for this market and user
+      const events = await publicClient.getLogs({
+        address: '0xEF2B2cc9c95996213CC6525B55E2B8CF11fc5E38', // Contract address
+        event: {
+          type: 'event',
+          name: 'SharesBought',
+          inputs: [
+            { type: 'uint256', name: 'marketId', indexed: true },
+            { type: 'address', name: 'buyer', indexed: true },
+            { type: 'bool', name: 'isYesShares', indexed: false },
+            { type: 'uint256', name: 'amount', indexed: false }
+          ]
+        },
+        args: {
+          marketId: marketId,
+          buyer: userAddress
+        },
+        fromBlock: 'earliest',
+        toBlock: 'latest'
+      });
+      
+      console.log('refreshUserShares: Found events:', events);
+      
+      // Calculate total shares from events
+      let yesShares = 0n;
+      let noShares = 0n;
+      
+      events.forEach((event) => {
+        if (event.args && event.args.isYesShares !== undefined && event.args.amount) {
+          if (event.args.isYesShares) {
+            yesShares += BigInt(event.args.amount);
+          } else {
+            noShares += BigInt(event.args.amount);
+          }
+        }
+      });
+      
+      console.log('refreshUserShares: Calculated shares:', { yesShares, noShares });
+      
+      setUserShares({ yesShares, noShares });
+      
+      console.log('refreshUserShares: Updated userShares state');
     } catch (err) {
-      console.error('Error refreshing user shares:', err);
+      console.error('Error refreshing user shares from events:', err);
     }
-  }, [marketId, userAddress, getUserShares]);
+  }, [marketId, userAddress, publicClient]);
 
   // Get user participation info
   const getUserParticipationInfo = useCallback(async () => {
@@ -69,6 +109,14 @@ export const useMarketTrading = (marketId: bigint) => {
 
   // Get total user investment
   const totalInvestment = userShares.yesShares + userShares.noShares;
+
+  // Automatically fetch user shares when hook is initialized
+  useEffect(() => {
+    if (marketId && userAddress) {
+      console.log('useMarketTrading: Auto-fetching user shares for market:', marketId.toString());
+      refreshUserShares();
+    }
+  }, [marketId, userAddress, refreshUserShares]);
 
   return {
     // State

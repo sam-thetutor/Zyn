@@ -11,6 +11,8 @@ import Home from './pages/Home';
 import Markets from './pages/Markets';
 import MarketDetail from './pages/MarketDetail';
 import CreateMarket from './pages/CreateMarket';
+import Profile from './pages/Profile';
+import Admin from './pages/Admin';
 
 // Initialize Farcaster SDK
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ function App() {
                     <Route path="/markets" element={<Markets />} />
                     <Route path="/market/:id" element={<MarketDetail />} />
                     <Route path="/create-market" element={<CreateMarket />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/admin" element={<Admin />} />
                   </Routes>
                 </div>
               </main>

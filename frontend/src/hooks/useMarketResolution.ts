@@ -89,16 +89,28 @@ export const useMarketResolution = (marketId: bigint) => {
     if (!marketId || !userAddress) return;
     
     try {
+      console.log('useMarketResolution: Starting checkUserWinnings for market:', marketId.toString());
       setLoading(true);
       setError(null);
       
-      const info = await getWinnerInfo(marketId, userAddress);
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout: getWinnerInfo took too long')), 8000);
+      });
+      
+      const info = await Promise.race([
+        getWinnerInfo(marketId, userAddress),
+        timeoutPromise
+      ]);
+      
+      console.log('useMarketResolution: getWinnerInfo result:', info);
       setWinnerInfo(info);
       
     } catch (err) {
       console.error('Error checking user winnings:', err);
       setError(err instanceof Error ? err.message : 'Failed to check user winnings');
     } finally {
+      console.log('useMarketResolution: Setting loading to false');
       setLoading(false);
     }
   }, [marketId, userAddress, getWinnerInfo]);

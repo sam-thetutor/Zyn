@@ -9,6 +9,9 @@ const Header: React.FC = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Check if current user is admin
+  const isAdmin = address?.toLowerCase() === '0x21D654daaB0fe1be0e584980ca7C1a382850939f'.toLowerCase();
+
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
@@ -59,6 +62,17 @@ const Header: React.FC = () => {
                 >
                   Create Market
                 </Link>
+                <Link to="/profile" className="text-gray-700 hover:text-blue-600 transition-colors">
+                  Profile
+                </Link>
+                {isAdmin && (
+                  <Link 
+                    to="/admin" 
+                    className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+                  >
+                    Admin
+                  </Link>
+                )}
               </nav>
 
               {/* Desktop Wallet Connection */}
@@ -157,6 +171,30 @@ const Header: React.FC = () => {
                 >
                   Create Market
                 </Link>
+                <Link
+                  to="/profile"
+                  onClick={closeMobileMenu}
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    isActiveLink('/profile')
+                      ? 'text-blue-600 bg-blue-50'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  Profile
+                </Link>
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    onClick={closeMobileMenu}
+                    className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                      isActiveLink('/admin')
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    Admin
+                  </Link>
+                )}
               </nav>
               
               {/* Wallet Connection */}
