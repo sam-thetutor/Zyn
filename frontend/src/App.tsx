@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { config } from './config/wagmi';
 import Header from './components/Header';
+import Footer from './components/Footer';
 import Home from './pages/Home';
 import Markets from './pages/Markets';
 
@@ -15,14 +16,17 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <WagmiProvider config={config}>
         <Router>
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen bg-gray-100 flex flex-col">
             <Header />
-            <div className="max-w-[1280px] mx-auto">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/markets" element={<Markets />} />
-              </Routes>
-            </div>
+            <main className="flex-1">
+              <div className="max-w-[1280px] mx-auto">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/markets" element={<Markets />} />
+                </Routes>
+              </div>
+            </main>
+            <Footer />
           </div>
         </Router>
       </WagmiProvider>
