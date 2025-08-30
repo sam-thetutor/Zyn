@@ -216,11 +216,11 @@ const Markets: React.FC = () => {
       </div>
 
       {/* Create Market CTA */}
-      <div className="text-center">
+      {/* <div className="text-center">
         <button className="bg-green-600 text-white px-8 py-3 rounded-lg text-lg font-medium hover:bg-green-700 transition-colors">
           Create New Market
         </button>
-      </div>
+      </div> */}
 
       {/* Mobile Filter Sidebar */}
       {isFilterModalOpen && (

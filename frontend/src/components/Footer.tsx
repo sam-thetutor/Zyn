@@ -11,10 +11,7 @@ const Footer: React.FC = () => {
           {/* Brand Section */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">Z</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">Zyn</span>
+              <img src="/logo.png" alt="Zyn" className="w-8 h-8" />
             </div>
             <p className="text-gray-600 mb-4 max-w-md">
               Decentralized prediction markets on Base. Trade on the future and earn rewards for accurate predictions.

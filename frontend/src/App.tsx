@@ -7,6 +7,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import Markets from './pages/Markets';
+import MarketDetail from './pages/MarketDetail';
 
 // Initialize Farcaster SDK
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/markets" element={<Markets />} />
+                  <Route path="/market/:id" element={<MarketDetail />} />
                 </Routes>
               </div>
             </main>
