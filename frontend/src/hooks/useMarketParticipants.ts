@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useContractAddress } from './useContractAddress';
 import { usePublicClient } from 'wagmi';
-import { formatEther } from 'viem';
+// import { formatEther } from 'viem';
 
 export interface MarketParticipant {
   address: string;
@@ -13,7 +13,7 @@ export interface MarketParticipant {
 }
 
 export const useMarketParticipants = (marketId: bigint | undefined) => {
-  const { coreContractAddress, coreContractABI } = useContractAddress();
+  const { coreContractAddress } = useContractAddress();
   const publicClient = usePublicClient();
   
   const [participants, setParticipants] = useState<MarketParticipant[]>([]);
@@ -29,6 +29,10 @@ export const useMarketParticipants = (marketId: bigint | undefined) => {
       setError(null);
 
       // Get all SharesBought events for this market
+      // Use a more recent starting block to avoid timeout issues
+      const currentBlock = await publicClient.getBlockNumber();
+      const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n; // Last 10k blocks
+      
       const logs = await publicClient.getLogs({
         address: coreContractAddress as `0x${string}`,
         event: {
@@ -44,9 +48,11 @@ export const useMarketParticipants = (marketId: bigint | undefined) => {
         args: {
           marketId: marketId
         },
-        fromBlock: 0n,
+        fromBlock: fromBlock,
         toBlock: 'latest'
       });
+      
+      console.log('useMarketParticipants: Logs response:', logs);
 
       // Process events to aggregate participant data
       const participantMap = new Map<string, {
@@ -107,7 +113,19 @@ export const useMarketParticipants = (marketId: bigint | undefined) => {
 
     } catch (err) {
       console.error('Error fetching market participants:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch participants');
+      
+      // Handle specific error types
+      if (err instanceof Error) {
+        if (err.message.includes('timeout') || err.message.includes('TimeoutError')) {
+          setError('Request timed out. Please try again or check your connection.');
+        } else if (err.message.includes('rate limit')) {
+          setError('Rate limit exceeded. Please wait a moment and try again.');
+        } else {
+          setError(`Failed to fetch participants: ${err.message}`);
+        }
+      } else {
+        setError('Failed to fetch participants. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

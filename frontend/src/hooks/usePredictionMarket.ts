@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+// This file aggregates functions from other hooks
 import { usePredictionMarketCore } from './usePredictionMarketCore';
 import { usePredictionMarketClaims } from './usePredictionMarketClaims';
 

@@ -20,6 +20,14 @@ module.exports = {
       chainId: 44787,
       timeout: 60000,
     },
+    // Celo Mainnet
+    "celo": {
+      url: process.env.CELO_RPC_URL || "https://forno.celo.org",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 42220,
+      gasPrice: 50000000000, // 50 gwei
+      timeout: 60000,
+    },
     // Base Mainnet (commented out for now)
     // base: {
     //   url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
@@ -44,6 +52,7 @@ module.exports = {
   etherscan: {
     apiKey: {
       "celo-alfajores": process.env.CELOSCAN_API_KEY || "",
+      "celo": process.env.CELOSCAN_API_KEY || "",
       // base: process.env.BASESCAN_API_KEY || "",
       // "base-sepolia": process.env.BASESCAN_API_KEY || "",
     },
@@ -54,6 +63,14 @@ module.exports = {
         urls: {
           apiURL: "https://api-alfajores.celoscan.io/api",
           browserURL: "https://alfajores.celoscan.io",
+        },
+      },
+      {
+        network: "celo",
+        chainId: 42220,
+        urls: {
+          apiURL: "https://api.celoscan.io/api",
+          browserURL: "https://celoscan.io",
         },
       },
       // {

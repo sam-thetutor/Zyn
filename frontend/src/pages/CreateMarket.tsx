@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
 import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
+import { useMiniApp } from '../hooks/useMiniApp';
+import { useReferral } from '../contexts/ReferralContext';
+import ReferralBanner from '../components/ReferralBanner';
 import NotificationContainer from '../components/NotificationContainer';
 import { parseEther } from 'viem';
 
@@ -19,14 +22,16 @@ interface CreateMarketForm {
 const CreateMarket: React.FC = () => {
   const navigate = useNavigate();
   const { isConnected, address } = useAccount();
-  const { createMarket, isPending, isSuccess, isError, hash } = usePredictionMarket();
+  const { createMarket, isPending, isSuccess, hash } = usePredictionMarket();
+  const { isMiniApp, composeCast, triggerNotificationHaptic } = useMiniApp();
+  const { referralCode, submitReferral } = useReferral();
   
   const { 
     notifyMarketCreated, 
     notifyMarketCreationFailed, 
     notifyMarketCreationStarted,
     notifyValidationError,
-    notifyTransactionSuccess
+    // notifyTransactionSuccess
   } = useNotificationHelpers();
 
   const [formData, setFormData] = useState<CreateMarketForm>({
@@ -68,12 +73,30 @@ const CreateMarket: React.FC = () => {
     if (isSuccess && hash) {
       setIsCreating(false); // Hide loader
       notifyMarketCreated(formData.question);
+      
+      // Submit referral if user was referred
+      if (referralCode) {
+        submitReferral({
+          type: 'market_creation',
+          marketId: 'new', // Will be updated when we get the actual market ID
+        }, hash);
+      }
+      
+      // Trigger haptic feedback and compose cast for Mini App users
+      if (isMiniApp) {
+        triggerNotificationHaptic('success');
+        composeCast(
+          `I just created a prediction market: "${formData.question}" on @zynprotocol! 🚀`,
+          [`https://zynp.vercel.app`]
+        );
+      }
+      
       //wait for 4 seconds and redirect to markets page
       setTimeout(() => {
         navigate('/markets');
       }, 4000);
     }
-  }, [isSuccess, hash, navigate, formData.question, notifyMarketCreated]);
+  }, [isSuccess, hash, navigate, formData.question, notifyMarketCreated, isMiniApp, composeCast, triggerNotificationHaptic, referralCode, submitReferral]);
 
   const validateForm = (): boolean => {
     const errors: Partial<CreateMarketForm> = {};
@@ -160,7 +183,7 @@ const CreateMarket: React.FC = () => {
         formData.image || 'https://via.placeholder.com/400x300?text=Market+Image',
         sourceLinks, // source
         BigInt(endTimestamp),
-        parseEther('0.001') // value - market creation fee
+        parseEther('1') //  1 CELO value - market creation fee
       );
 
       //wait for 4 seconds and redirect to markets page
@@ -219,13 +242,22 @@ const CreateMarket: React.FC = () => {
 
   return (
     <div className="py-8 px-4 sm:px-6 lg:px-8">
+      {/* Referral Banner */}
+      <ReferralBanner />
+      
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Create New Prediction Market</h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-gray-600 mb-4">
             Set up a new prediction market and let the community vote on the outcome
           </p>
+          <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Market Creation Fee: 1 CELO
+          </div>
         </div>
 
         {/* Create Market Form */}
@@ -440,6 +472,24 @@ const CreateMarket: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Fee Information */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-amber-800">Market Creation Fee</h4>
+                  <p className="text-sm text-amber-700">
+                    Creating a prediction market costs <span className="font-semibold">1 CELO</span>. 
+                    This fee helps maintain the platform and prevent spam.
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Form Actions */}
             <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">

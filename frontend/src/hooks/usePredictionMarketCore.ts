@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useReadContract } from 'wagmi';
 import { formatEther, parseEther } from 'viem';
 import { useContractAddress } from './useContractAddress';
@@ -27,7 +27,7 @@ export const usePredictionMarketCore = () => {
   });
 
   // Default values for fees since they don't exist in the contract
-  const usernameChangeFee = "0.00001"; // From contract constant USERNAME_CHANGE_FEE
+  // Username change fee constant (unused but kept for reference)
 
   // Write contract functions
   const { writeContract, data: hash, isPending } = useWriteContract();
@@ -280,25 +280,7 @@ export const usePredictionMarketCore = () => {
     }
   }, [coreContractAddress, coreContractABI, contractConfig, publicClient]);
 
-  // Get username change fee - No wallet required
-  const getUsernameChangeFee = useCallback(async (): Promise<bigint> => {
-    if (!coreContractAddress || !coreContractABI || !publicClient) {
-      throw new Error('Core contract not found');
-    }
-
-    try {
-      const fee = await publicClient.readContract({
-        ...contractConfig,
-        functionName: 'USERNAME_CHANGE_FEE',
-        args: [],
-      });
-
-      return BigInt(fee as string | number | bigint);
-    } catch (error) {
-      console.error('Error fetching username change fee:', error);
-      return 0n;
-    }
-  }, [coreContractAddress, coreContractABI, contractConfig, publicClient]);
+  // Username change fee function (unused but kept for reference)
 
   // Utility functions
   const formatEtherValue = useCallback((value: bigint | undefined): string => {

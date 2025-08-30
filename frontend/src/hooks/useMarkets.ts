@@ -20,7 +20,7 @@ export interface MarketWithUserShares extends Market {
 export const useMarkets = () => {
   const { 
     totalMarkets, 
-    refetchTotalMarkets,
+    // refetchTotalMarkets,
     getMarket,
     getUserShares,
     getUserParticipation,
@@ -232,10 +232,10 @@ export const useMarkets = () => {
             m.id === market.id
               ? { 
                   ...m, 
-                  userYesShares: yesShares, 
-                  userNoShares: noShares,
-                  userParticipation,
-                  winnerInfo
+                  userYesShares: BigInt(yesShares), 
+                  userNoShares: BigInt(noShares),
+                  userParticipation: userParticipation || undefined,
+                  winnerInfo: winnerInfo || undefined
                 }
               : m
           )

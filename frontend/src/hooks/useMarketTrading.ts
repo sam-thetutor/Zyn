@@ -45,26 +45,30 @@ export const useMarketTrading = (marketId: bigint) => {
     try {
       console.log('refreshUserShares: Fetching shares from events for market:', marketId.toString(), 'user:', userAddress);
       
-      // Get all SharesBought events for this market and user
-      const events = await publicClient.getLogs({
-        address: '0xEF2B2cc9c95996213CC6525B55E2B8CF11fc5E38', // Contract address
-        event: {
-          type: 'event',
-          name: 'SharesBought',
-          inputs: [
-            { type: 'uint256', name: 'marketId', indexed: true },
-            { type: 'address', name: 'buyer', indexed: true },
-            { type: 'bool', name: 'isYesShares', indexed: false },
-            { type: 'uint256', name: 'amount', indexed: false }
-          ]
-        },
-        args: {
-          marketId: marketId,
-          buyer: userAddress
-        },
-        fromBlock: 'earliest',
-        toBlock: 'latest'
-      });
+              // Get all SharesBought events for this market and user
+        // Use a more recent starting block to avoid timeout issues
+        const currentBlock = await publicClient.getBlockNumber();
+        const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 0n; // Last 10k blocks
+        
+        const events = await publicClient.getLogs({
+          address: '0x0C49604c65588858DC206AAC6EFEc0F8Afe2d1d6', // Celo Mainnet Contract address
+          event: {
+            type: 'event',
+            name: 'SharesBought',
+            inputs: [
+              { type: 'uint256', name: 'marketId', indexed: true },
+              { type: 'address', name: 'buyer', indexed: true },
+              { type: 'bool', name: 'isYesShares', indexed: false },
+              { type: 'uint256', name: 'amount', indexed: false }
+            ]
+          },
+          args: {
+            marketId: marketId,
+            buyer: userAddress
+          },
+          fromBlock: fromBlock,
+          toBlock: 'latest'
+        });
       
       console.log('refreshUserShares: Found events:', events);
       

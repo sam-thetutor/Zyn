@@ -10,9 +10,9 @@ export const useMarketResolution = (marketId: bigint) => {
     calculateWinners, 
     claimWinnings,
     getWinnerInfo,
-    isWinner,
-    calculateUserWinnings,
-    hasClaimed
+    // isWinner,
+    // calculateUserWinnings,
+    // hasClaimed
   } = usePredictionMarket();
   
   const { address: userAddress } = useAccount();
@@ -104,7 +104,11 @@ export const useMarketResolution = (marketId: bigint) => {
       ]);
       
       console.log('useMarketResolution: getWinnerInfo result:', info);
-      setWinnerInfo(info);
+      if (info) {
+        if (info && typeof info === 'object' && 'isWinner' in info && 'winnings' in info && 'hasClaimed' in info) {
+          setWinnerInfo(info as WinnerInfo);
+        }
+      }
       
     } catch (err) {
       console.error('Error checking user winnings:', err);

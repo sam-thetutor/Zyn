@@ -3,7 +3,7 @@ import { useAccount } from 'wagmi';
 import { usePublicClient } from 'wagmi';
 import { useContractAddress } from './useContractAddress';
 import { useMarkets } from './useMarkets';
-import { formatEther } from 'viem';
+// import { formatEther } from 'viem';
 
 export interface UserActivity {
   id: string;
@@ -27,7 +27,7 @@ export interface UserStats {
 
 export const useUserProfile = () => {
   const { address: userAddress } = useAccount();
-  const { coreContractAddress, coreContractABI } = useContractAddress();
+  const { coreContractAddress } = useContractAddress();
   const publicClient = usePublicClient();
   const { allMarkets } = useMarkets();
 

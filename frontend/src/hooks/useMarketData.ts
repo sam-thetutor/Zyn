@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useReadContract, usePublicClient } from 'wagmi';
 import { useContractAddress } from './useContractAddress';
-import type { Market, UserParticipation, WinnerInfo } from '../utils/contracts';
+import type { Market } from '../utils/contracts';
 
 // Hook to get a specific market by ID
 export const useMarket = (marketId: bigint | undefined) => {

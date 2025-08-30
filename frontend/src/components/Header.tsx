@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAccount, useDisconnect } from 'wagmi';
+import { useReferral } from '../contexts/ReferralContext';
 import ConnectWallet from './ConnectWallet';
 
 const Header: React.FC = () => {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const location = useLocation();
+  const { referralCode, referralAddress } = useReferral();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Check if current user is admin
@@ -79,6 +81,14 @@ const Header: React.FC = () => {
               <div className="hidden md:flex items-center">
                 {isConnected ? (
                   <div className="flex items-center space-x-3">
+                    {/* Referral Indicator */}
+                    {referralCode && (
+                      <div className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                        <span>🎉</span>
+                        <span>Referred by {referralAddress?.slice(0, 6)}...</span>
+                      </div>
+                    )}
+                    
                     <span className="text-sm text-gray-600">
                       {formatAddress(address!)}
                     </span>

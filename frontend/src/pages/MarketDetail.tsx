@@ -1,27 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAccount, usePublicClient } from 'wagmi';
 import { useMarkets } from '../hooks/useMarkets';
 import { useMarketParticipants } from '../hooks/useMarketParticipants';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
 import { useMarketTrading } from '../hooks/useMarketTrading';
 import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
+import { useMiniApp } from '../hooks/useMiniApp';
+import { useReferral } from '../contexts/ReferralContext';
 import NotificationContainer from '../components/NotificationContainer';
+import { MarketEmbedMeta } from '../components/MarketEmbedMeta';
 import { formatEther, parseEther } from 'viem';
+
+// Current CELO price in USD (update this as needed)
+const CELO_PRICE_USD = 0.311331;
 
 const MarketDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isConnected, address } = useAccount();
   const publicClient = usePublicClient();
-  const { allMarkets, loading, error } = useMarkets();
-  const { participants, loading: participantsLoading, totalParticipants } = useMarketParticipants(
+  const { isMiniApp, composeCast, triggerHaptic, triggerNotificationHaptic } = useMiniApp();
+  const { referralCode, submitReferral } = useReferral();
+  const { allMarkets, loading, error: marketsError } = useMarkets();
+  const { participants, loading: participantsLoading, totalParticipants, error: participantsError } = useMarketParticipants(
     id ? BigInt(id) : undefined
   );
   const { 
     buyShares, 
     claimWinnings, 
-    isPending: isBuyPending, 
     isSuccess: isBuySuccess, 
     hash: buyHash,
     // Claims transaction states
@@ -31,10 +38,10 @@ const MarketDetail: React.FC = () => {
     hash: claimHash,
     isConfirming: isClaimConfirming
   } = usePredictionMarket();
-  const { notifySharesBought, notifySharesPurchaseFailed, notifySharesPurchaseStarted, notifyTransactionSuccess } = useNotificationHelpers();
+  const { notifySharesPurchaseFailed, notifySharesPurchaseStarted, notifyTransactionSuccess } = useNotificationHelpers();
   
   // Use the market trading hook to get user shares - must be before useEffect hooks
-  const { userShares, hasShares, refreshUserShares } = useMarketTrading(
+  const { userShares, hasShares } = useMarketTrading(
     id ? BigInt(id) : 0n
   );
 
@@ -60,6 +67,19 @@ const MarketDetail: React.FC = () => {
     }
   }, [id, allMarkets]);
 
+  // Track share purchase success and submit referral
+  useEffect(() => {
+    if (isBuySuccess && buyHash && referralCode) {
+      // Submit referral for share trading
+      submitReferral({
+        type: 'share_trading',
+        marketId: id,
+        outcome: buyOutcome || false,
+        amount: buyAmount,
+      }, buyHash);
+    }
+  }, [isBuySuccess, buyHash, referralCode, submitReferral, id, buyOutcome, buyAmount]);
+
   // Check if user can claim winnings when market is resolved
   useEffect(() => {
     const checkClaimEligibility = async () => {
@@ -70,7 +90,7 @@ const MarketDetail: React.FC = () => {
         
         // Get all SharesBought events for this market and user
         const sharesEvents = await publicClient.getLogs({
-          address: '0xEF2B2cc9c95996213CC6525B55E2B8CF11fc5E38',
+          address: '0x0C49604c65588858DC206AAC6EFEc0F8Afe2d1d6',
           event: {
             type: 'event',
             name: 'SharesBought',
@@ -108,7 +128,7 @@ const MarketDetail: React.FC = () => {
         // Check if user has already claimed winnings
         // Use the claims contract address, not the core contract
         const claimedEvents = await publicClient.getLogs({
-          address: '0xB555eff91049546Bf525aB1CCAa2b1edfD6c3218', // Claims contract address
+          address: '0x95B70dD47553f727638257b2A20D63c15b450A4A', // Celo Mainnet Claims contract address
           event: {
             type: 'event',
             name: 'WinningsClaimed',
@@ -170,10 +190,16 @@ const MarketDetail: React.FC = () => {
       setShowBuyModal(false);
       setBuyAmount('');
       setBuyOutcome(null);
+      
+      // Trigger haptic feedback for Mini App users
+      if (isMiniApp) {
+        triggerHaptic('medium');
+      }
+      
       // Refresh market data
       window.location.reload();
     }
-  }, [isBuySuccess, buyHash, notifyTransactionSuccess]);
+  }, [isBuySuccess, buyHash, notifyTransactionSuccess, isMiniApp, triggerHaptic]);
 
   // Handle claim winnings success
   useEffect(() => {
@@ -183,8 +209,26 @@ const MarketDetail: React.FC = () => {
       // Update UI to show claimed state
       setCanClaimWinnings(false);
       setHasClaimedWinnings(true);
+      
+      // Submit referral if user was referred
+      if (referralCode) {
+        submitReferral({
+          type: 'winning_claim',
+          marketId: id,
+          outcome: market.outcome,
+        }, claimHash);
+      }
+      
+      // Trigger haptic feedback and compose cast for Mini App users
+      if (isMiniApp && market) {
+        triggerNotificationHaptic('success');
+        composeCast(
+          `Just won on @zynprotocol! 🎉 Market: "${market.question}"`,
+          [`https://zynp.vercel.app/market/${id}`]
+        );
+      }
     }
-  }, [isClaimSuccess, claimHash, notifyTransactionSuccess]);
+  }, [isClaimSuccess, claimHash, notifyTransactionSuccess, isMiniApp, market, id, composeCast, triggerNotificationHaptic, referralCode, submitReferral]);
 
   // Handle claim winnings error
   useEffect(() => {
@@ -207,7 +251,7 @@ const MarketDetail: React.FC = () => {
   }
 
   // Error state
-  if (error || !market) {
+  if (marketsError || !market) {
     return (
       <div className="py-8 px-4 sm:px-6 lg:px-8">
         <div className="text-center">
@@ -314,6 +358,11 @@ const MarketDetail: React.FC = () => {
       setIsClaiming(true);
       console.log('Claiming winnings for market:', id);
       
+      // Trigger haptic feedback for Mini App users
+      if (isMiniApp) {
+        triggerHaptic('medium');
+      }
+      
       // Call the smart contract to claim winnings
       await claimWinnings(BigInt(id));
       
@@ -358,6 +407,11 @@ const MarketDetail: React.FC = () => {
       setIsBuying(true);
       notifySharesPurchaseStarted(buyOutcome, buyAmount);
 
+      // Trigger haptic feedback for Mini App users
+      if (isMiniApp) {
+        triggerHaptic('light');
+      }
+
       await buyShares(
         market.id,
         buyOutcome,
@@ -373,7 +427,19 @@ const MarketDetail: React.FC = () => {
   };
 
   return (
-    <div className="py-8 px-4 sm:px-6 lg:px-8">
+    <>
+      {market && (
+        <MarketEmbedMeta 
+          market={{
+            id: market.id.toString(),
+            question: market.question,
+            description: market.description,
+            category: market.category,
+            totalPool: market.totalPool
+          }}
+        />
+      )}
+      <div className="py-8 px-4 sm:px-6 lg:px-8">
       {/* Navigation */}
       <div className="mb-6">
         <button
@@ -427,19 +493,24 @@ const MarketDetail: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Volume:</span>
-                  <span className="font-medium">${formatEther(market.totalPool)}</span>
+                  <span className="font-medium">${(Number(formatEther(market.totalPool)) * CELO_PRICE_USD).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Yes Shares:</span>
-                  <span className="font-medium text-green-600">{formatEther(market.totalYes)}</span>
+                  <span className="font-medium text-green-600">{formatEther(market.totalYes)} CELO</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">No Shares:</span>
-                  <span className="font-medium text-red-600">{formatEther(market.totalNo)}</span>
+                  <span className="font-medium text-red-600">{formatEther(market.totalNo)} CELO</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Participants:</span>
                   <span className="font-medium">{totalParticipants}</span>
+                </div>
+                <div className="pt-2 border-t border-gray-200">
+                  <div className="text-xs text-gray-500">
+                    CELO Price: ${CELO_PRICE_USD}
+                  </div>
                 </div>
               </div>
             </div>
@@ -462,7 +533,7 @@ const MarketDetail: React.FC = () => {
             ></div>
           </div>
           <div className="text-sm text-gray-600">
-            {formatEther(market.totalYes)} shares • ${formatEther(market.totalYes)} volume
+            {formatEther(market.totalYes)} shares • ${(Number(formatEther(market.totalYes)) * CELO_PRICE_USD).toFixed(2)} volume
           </div>
         </div>
 
@@ -479,7 +550,7 @@ const MarketDetail: React.FC = () => {
             ></div>
           </div>
           <div className="text-sm text-gray-600">
-            {formatEther(market.totalNo)} shares • ${formatEther(market.totalNo)} volume
+            {formatEther(market.totalNo)} shares • ${(Number(formatEther(market.totalNo)) * CELO_PRICE_USD).toFixed(2)} volume
           </div>
         </div>
       </div>
@@ -497,6 +568,18 @@ const MarketDetail: React.FC = () => {
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading participants...</p>
+          </div>
+        ) : participantsError ? (
+          <div className="text-center py-8">
+            <div className="text-red-400 text-4xl mb-4">⚠️</div>
+            <h4 className="text-lg font-medium text-gray-900 mb-2">Failed to Load Participants</h4>
+            <p className="text-gray-600 mb-4">{participantsError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Retry
+            </button>
           </div>
         ) : participants.length > 0 ? (
           <div className="space-y-4">
@@ -525,10 +608,10 @@ const MarketDetail: React.FC = () => {
                   {/* Investment Details */}
                   <div className="text-right">
                     <div className="font-medium text-gray-900">
-                      ${formatEther(participant.totalInvestment)}
+                      ${(Number(formatEther(participant.totalInvestment)) * CELO_PRICE_USD).toFixed(2)}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {participant.investmentPercentage.toFixed(2)}% of pool
+                      {formatEther(participant.totalInvestment)} CELO • {participant.investmentPercentage.toFixed(2)}% of pool
                     </div>
                   </div>
 
@@ -603,12 +686,12 @@ const MarketDetail: React.FC = () => {
                       {formatEther(getUserShares().yesShares + getUserShares().noShares)} shares
                     </span>
                   </div>
-                  <div className="flex justify-between mt-1">
+                  {/* <div className="flex justify-between mt-1">
                     <span>Total Value:</span>
                     <span className="font-medium">
-                      ${(Number(getUserShares().yesShares) * (yesPercentage / 100) + Number(getUserShares().noShares) * (noPercentage / 100)).toFixed(4)}
+                      ${(formatGwei(BigInt(getUserShares().yesShares + getUserShares().noShares)) as any * CELO_PRICE_USD).toFixed(4)}
                     </span>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </div>
@@ -755,7 +838,7 @@ const MarketDetail: React.FC = () => {
           </div>
           <div>
             <span className="text-sm text-gray-500">Total Pool:</span>
-            <p className="text-gray-900">${formatEther(market.totalPool)}</p>
+            <p className="text-gray-900">${(Number(formatEther(market.totalPool)) * CELO_PRICE_USD).toFixed(2)} (${formatEther(market.totalPool)} CELO)</p>
           </div>
           <div>
             <span className="text-sm text-gray-500">Market Status:</span>
@@ -859,7 +942,8 @@ const MarketDetail: React.FC = () => {
       )}
 
       <NotificationContainer />
-    </div>
+      </div>
+    </>
   );
 };
 

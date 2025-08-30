@@ -54,13 +54,17 @@ export const usePredictionMarketClaims = () => {
     }
 
     try {
+      if (!publicClient) {
+        throw new Error('Public client not available');
+      }
+      
       const winner = await publicClient.readContract({
         ...contractConfig,
         functionName: 'isWinner',
         args: [marketId, userAddress as `0x${string}`],
       });
 
-      return winner;
+      return Boolean(winner);
     } catch (error) {
       console.error('Error checking if user is winner:', error);
       return false;
@@ -74,6 +78,10 @@ export const usePredictionMarketClaims = () => {
     }
 
     try {
+      if (!publicClient) {
+        throw new Error('Public client not available');
+      }
+      
       const winnings = await publicClient.readContract({
         ...contractConfig,
         functionName: 'calculateUserWinnings',
@@ -94,13 +102,17 @@ export const usePredictionMarketClaims = () => {
     }
 
     try {
+      if (!publicClient) {
+        throw new Error('Public client not available');
+      }
+      
       const claimed = await publicClient.readContract({
         ...contractConfig,
         functionName: 'hasClaimed',
         args: [marketId, userAddress as `0x${string}`],
       });
 
-      return claimed > 0n;
+      return Number(claimed) > 0;
     } catch (error) {
       console.error('Error checking if user has claimed:', error);
       return false;
@@ -114,6 +126,10 @@ export const usePredictionMarketClaims = () => {
     }
 
     try {
+      if (!publicClient) {
+        throw new Error('Public client not available');
+      }
+      
       const totalShares = await publicClient.readContract({
         ...contractConfig,
         functionName: 'totalWinningShares',
@@ -142,7 +158,7 @@ export const usePredictionMarketClaims = () => {
 
       return {
         isWinner: isWinnerResult,
-        winnings,
+        winnings: BigInt(winnings),
         hasClaimed: hasClaimedResult,
       };
     } catch (error) {

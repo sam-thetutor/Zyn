@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { useUserActivity } from '../hooks/useUserActivity';
-import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
+// import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
+import { useReferral } from '../contexts/ReferralContext';
+import ReferralLink from '../components/ReferralLink';
 import NotificationContainer from '../components/NotificationContainer';
 import { formatEther } from 'viem';
 import { Link } from 'react-router-dom';
@@ -11,13 +13,14 @@ const Profile: React.FC = () => {
   const { 
     activities: userActivities, 
     loading, 
-    error, 
+    // error, 
     stats,
     refetch: refetchActivities 
   } = useUserActivity();
-  const { notifyWalletConnectionFailed } = useNotificationHelpers();
+  const { referralStats } = useReferral();
+  // const { notifyWalletConnectionFailed } = useNotificationHelpers();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'activities' | 'markets'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'activities' | 'markets' | 'referrals'>('overview');
 
   // Handle wallet not connected
   if (!isConnected || !address) {
@@ -120,7 +123,8 @@ const Profile: React.FC = () => {
             {[
               { id: 'overview', label: 'Overview', count: null },
               { id: 'activities', label: 'Activities', count: userActivities.length },
-              { id: 'markets', label: 'My Markets', count: stats.totalMarkets }
+              { id: 'markets', label: 'My Markets', count: stats.totalMarkets },
+              { id: 'referrals', label: 'Referrals', count: referralStats.totalReferrals }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -235,9 +239,9 @@ const Profile: React.FC = () => {
                           </p>
                         </div>
                       </div>
-                      {activity.details.amount && (
+                      {activity.details.amount !== undefined && activity.details.amount !== null && Number(activity.details.amount) > 0 && (
                         <p className="text-sm text-gray-600 mt-2">
-                          Amount: {formatEther(activity.details.amount)} CELO
+                          Amount: {typeof activity.details.amount === 'bigint' ? formatEther(activity.details.amount) : String(activity.details.amount)} CELO
                         </p>
                       )}
                     </div>
@@ -314,6 +318,70 @@ const Profile: React.FC = () => {
                 </Link>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'referrals' && (
+          <div className="space-y-6">
+            {/* Referral Link Component */}
+            <ReferralLink />
+            
+            {/* Referral Statistics */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Referral Statistics</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600 mb-2">{referralStats.totalReferrals}</div>
+                  <p className="text-sm text-gray-600">Total Referrals</p>
+                </div>
+                
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600 mb-2">{referralStats.successfulReferrals}</div>
+                  <p className="text-sm text-gray-600">Successful</p>
+                </div>
+                
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-yellow-600 mb-2">{referralStats.pendingReferrals}</div>
+                  <p className="text-sm text-gray-600">Pending</p>
+                </div>
+                
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-purple-600 mb-2">{referralStats.totalRewards}</div>
+                  <p className="text-sm text-gray-600">Total Rewards</p>
+                </div>
+              </div>
+              
+              {/* How Referrals Work */}
+              <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-blue-900 mb-4">How Referrals Work</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl">🔗</span>
+                    </div>
+                    <h4 className="font-medium text-blue-900 mb-2">Share Your Link</h4>
+                    <p className="text-sm text-blue-700">Copy and share your unique referral link with friends</p>
+                  </div>
+                  
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl">💰</span>
+                    </div>
+                    <h4 className="font-medium text-green-900 mb-2">Earn Rewards</h4>
+                    <p className="text-sm text-green-700">Get rewards when your referrals create markets or trade</p>
+                  </div>
+                  
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl">📊</span>
+                    </div>
+                    <h4 className="font-medium text-purple-900 mb-2">Track Progress</h4>
+                    <p className="text-sm text-purple-700">Monitor your referral performance and earnings</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

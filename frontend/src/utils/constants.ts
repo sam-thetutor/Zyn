@@ -25,9 +25,15 @@ export const NETWORKS = {
 // Contract Configuration
 export const CONTRACTS = {
   PREDICTION_MARKET_CORE: {
-    // Celo Alfajores core contract
+    // Celo Alfajores testnet core contract
     CELO_ALFAJORES: {
-      address: import.meta.env.VITE_CELO_CORE_CONTRACT_ADDRESS || '0xEF2B2cc9c95996213CC6525B55E2B8CF11fc5E38',
+      address: import.meta.env.VITE_CELO_ALFAJORES_CORE_CONTRACT_ADDRESS || '0xEF2B2cc9c95996213CC6525B55E2B8CF11fc5E38',
+      name: 'PredictionMarketCore',
+      abi: PREDICTION_MARKET_CORE_ABI,
+    },
+    // Celo Mainnet core contract
+    CELO_MAINNET: {
+      address: import.meta.env.VITE_CELO_MAINNET_CORE_CONTRACT_ADDRESS || '0x0C49604c65588858DC206AAC6EFEc0F8Afe2d1d6',
       name: 'PredictionMarketCore',
       abi: PREDICTION_MARKET_CORE_ABI,
     },
@@ -39,9 +45,15 @@ export const CONTRACTS = {
     },
   },
   PREDICTION_MARKET_CLAIMS: {
-    // Celo Alfajores claims contract
+    // Celo Alfajores testnet claims contract
     CELO_ALFAJORES: {
-      address: import.meta.env.VITE_CELO_CLAIMS_CONTRACT_ADDRESS || '0xB555eff91049546Bf525aB1CCAa2b1edfD6c3218',
+      address: import.meta.env.VITE_CELO_ALFAJORES_CLAIMS_CONTRACT_ADDRESS || '0xB555eff91049546Bf525aB1CCAa2b1edfD6c3218',
+      name: 'PredictionMarketClaims',
+      abi: PREDICTION_MARKET_CLAIMS_ABI,
+    },
+    // Celo Mainnet claims contract
+    CELO_MAINNET: {
+      address: import.meta.env.VITE_CELO_MAINNET_CLAIMS_CONTRACT_ADDRESS || '0x95B70dD47553f727638257b2A20D63c15b450A4A',
       name: 'PredictionMarketClaims',
       abi: PREDICTION_MARKET_CLAIMS_ABI,
     },
@@ -68,7 +80,7 @@ export const APP_CONFIG = {
   maxQuestionLength: 200,
   maxDescriptionLength: 500,
   maxSourceLength: 100,
-  marketCreationFee: '0.001', // 0.001 CELO
+  marketCreationFee: '1', // 1 CELO (mainnet)
   usernameChangeFee: '0.00001', // 0.00001 CELO
 } as const;
 
@@ -80,14 +92,14 @@ export const UI_CONFIG = {
   maxSourceLength: 100,
   defaultGasLimit: 300000,
   defaultGasPrice: '1000000000', // 1 gwei
-  marketCreationFee: '0.001', // 0.001 CELO
+  marketCreationFee: '1', // 1 CELO (mainnet)
   usernameChangeFee: '0.00001', // 0.00001 CELO
 } as const;
 
 // Error Messages
 export const ERROR_MESSAGES = {
   WALLET_NOT_CONNECTED: 'Please connect your wallet to continue',
-  WRONG_NETWORK: 'Please switch to Celo Alfajores Testnet',
+  WRONG_NETWORK: 'Please switch to Celo Mainnet',
   INSUFFICIENT_BALANCE: 'Insufficient balance for this transaction',
   TRANSACTION_FAILED: 'Transaction failed. Please try again',
   MARKET_NOT_FOUND: 'Market not found',

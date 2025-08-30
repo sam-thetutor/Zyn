@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
 import { useContractAddress } from './useContractAddress';
+import { PREDICTION_MARKET_CORE_ABI } from '../utils/contracts';
 
 export interface UserActivity {
   id: string;
@@ -22,7 +23,7 @@ export interface UserActivity {
 export const useUserActivity = () => {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
-  const { coreContractAddress, coreContractABI, claimsContractAddress, claimsContractABI } = useContractAddress();
+  const { coreContractAddress, claimsContractAddress } = useContractAddress();
   const [activities, setActivities] = useState<UserActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -210,13 +211,13 @@ export const useUserActivity = () => {
             try {
               const marketData = await publicClient.readContract({
                 address: coreContractAddress,
-                abi: coreContractABI,
+                abi: PREDICTION_MARKET_CORE_ABI,
                 functionName: 'getMarket',
                 args: [activity.marketId],
               });
 
               if (marketData) {
-                const [id, question, category, image, endTime, status, outcome, totalYes, totalNo, totalPool] = marketData as any;
+                const [, question, category] = marketData as any;
                 return {
                   ...activity,
                   question: question || `Market #${activity.marketId}`,

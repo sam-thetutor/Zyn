@@ -40,7 +40,7 @@ contract PredictionMarketCore is Ownable {
     // Constants
     uint256 public constant MINIMUM_END_TIME = 120; // 2 minutes
     uint256 public constant USERNAME_CHANGE_FEE = 0.00001 ether;
-    uint256 public constant MARKET_CREATION_FEE = 0.001 ether; // Market creation fee
+    uint256 public constant MARKET_CREATION_FEE = 1 ether; // Market creation fee (1 CELO)
     
     // Events
     event MarketCreated(uint256 indexed marketId, address indexed creator, string question, string description, string source, uint256 endTime, uint256 creationFee);

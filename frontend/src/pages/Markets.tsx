@@ -1,29 +1,30 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import MarketCard from '../components/MarketCard';
 import { useMarkets } from '../hooks/useMarkets';
-import { useAccount } from 'wagmi';
+// import { useAccount } from 'wagmi';
+import ReferralBanner from '../components/ReferralBanner';
 import NotificationContainer from '../components/NotificationContainer';
 
 const Markets: React.FC = () => {
-  const { isConnected } = useAccount();
+  // const { isConnected } = useAccount();
   const {
     markets,
-    allMarkets,
+    // allMarkets,
     loading,
     error,
     currentPage,
     totalPages,
     searchTerm,
     selectedCategory,
-    selectedSubCategory,
-    volumeFilter,
+    // selectedSubCategory,
+    // volumeFilter,
     sortBy,
     categories,
-    subCategories,
+    // subCategories,
     setSearchTerm,
     setSelectedCategory,
-    setSelectedSubCategory,
-    setVolumeFilter,
+    // setSelectedSubCategory,
+    // setVolumeFilter,
     setSortBy,
     setCurrentPage,
     refetchMarkets,
@@ -77,6 +78,9 @@ const Markets: React.FC = () => {
 
   return (
     <div className="py-8 px-4 sm:px-6 lg:px-8">
+      {/* Referral Banner */}
+      <ReferralBanner />
+      
       {/* Page Header */}
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
 import { useMarkets } from '../hooks/useMarkets';
-import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
+import { useNotifications } from '../contexts/NotificationContext';
 import NotificationContainer from '../components/NotificationContainer';
 import { MarketStatus } from '../utils/contracts';
 
@@ -12,7 +12,7 @@ const Admin: React.FC = () => {
   const { isConnected, address } = useAccount();
   const { allMarkets: markets, loading, error, refetchMarkets } = useMarkets();
   const { resolveMarket, isPending } = usePredictionMarket();
-  const { notifySuccess, notifyError, notifyInfo } = useNotificationHelpers();
+  const { showSuccess, showError } = useNotifications();
   
   const [resolvingMarketId, setResolvingMarketId] = useState<bigint | null>(null);
   const [selectedOutcome, setSelectedOutcome] = useState<boolean | null>(null);
@@ -28,14 +28,14 @@ const Admin: React.FC = () => {
 
   const handleResolveMarket = async (marketId: bigint, outcome: boolean) => {
     if (!isAdmin) {
-      notifyError('Only admin can resolve markets');
+      showError('Access Denied', 'Only admin can resolve markets');
       return;
     }
 
     try {
       setResolvingMarketId(marketId);
       await resolveMarket(marketId, outcome);
-      notifySuccess(`Market resolved successfully! Outcome: ${outcome ? 'YES' : 'NO'}`);
+      showSuccess('Market Resolved', `Market resolved successfully! Outcome: ${outcome ? 'YES' : 'NO'}`);
       
       // Refresh markets after resolution
       setTimeout(() => {
@@ -43,7 +43,7 @@ const Admin: React.FC = () => {
       }, 2000);
     } catch (err) {
       console.error('Error resolving market:', err);
-      notifyError('Failed to resolve market. Please try again.');
+      showError('Resolution Failed', 'Failed to resolve market. Please try again.');
     } finally {
       setResolvingMarketId(null);
       setSelectedOutcome(null);
