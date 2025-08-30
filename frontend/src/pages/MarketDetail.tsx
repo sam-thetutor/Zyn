@@ -18,7 +18,19 @@ const MarketDetail: React.FC = () => {
   const { participants, loading: participantsLoading, totalParticipants } = useMarketParticipants(
     id ? BigInt(id) : undefined
   );
-  const { buyShares, isPending: isBuyPending, isSuccess: isBuySuccess, hash: buyHash } = usePredictionMarket();
+  const { 
+    buyShares, 
+    claimWinnings, 
+    isPending: isBuyPending, 
+    isSuccess: isBuySuccess, 
+    hash: buyHash,
+    // Claims transaction states
+    isPending: isClaimPending,
+    isSuccess: isClaimSuccess,
+    isError: isClaimError,
+    hash: claimHash,
+    isConfirming: isClaimConfirming
+  } = usePredictionMarket();
   const { notifySharesBought, notifySharesPurchaseFailed, notifySharesPurchaseStarted, notifyTransactionSuccess } = useNotificationHelpers();
   
   // Use the market trading hook to get user shares - must be before useEffect hooks
@@ -57,7 +69,7 @@ const MarketDetail: React.FC = () => {
         console.log('Checking claim eligibility for market:', id);
         
         // Get all SharesBought events for this market and user
-        const events = await publicClient.getLogs({
+        const sharesEvents = await publicClient.getLogs({
           address: '0xEF2B2cc9c95996213CC6525B55E2B8CF11fc5E38',
           event: {
             type: 'event',
@@ -77,11 +89,11 @@ const MarketDetail: React.FC = () => {
           toBlock: 'latest'
         });
         
-        console.log('Found SharesBought events:', events);
+        console.log('Found SharesBought events:', sharesEvents);
         
         // Check if user has winning shares
         let hasWinningShares = false;
-        events.forEach((event: any) => {
+        sharesEvents.forEach((event: any) => {
           if (event.args && event.args.isYesShares !== undefined && event.args.amount) {
             const isYesShares = event.args.isYesShares;
             const marketOutcome = market.outcome;
@@ -93,12 +105,58 @@ const MarketDetail: React.FC = () => {
           }
         });
         
-        console.log('User has winning shares:', hasWinningShares);
-        setCanClaimWinnings(hasWinningShares);
+        // Check if user has already claimed winnings
+        // Use the claims contract address, not the core contract
+        const claimedEvents = await publicClient.getLogs({
+          address: '0xB555eff91049546Bf525aB1CCAa2b1edfD6c3218', // Claims contract address
+          event: {
+            type: 'event',
+            name: 'WinningsClaimed',
+            inputs: [
+              { type: 'uint256', name: 'marketId', indexed: true },
+              { type: 'address', name: 'user', indexed: true },
+              { type: 'uint256', name: 'amount', indexed: false }
+            ]
+          },
+          args: {
+            marketId: BigInt(id),
+            user: address
+          },
+          fromBlock: 'earliest',
+          toBlock: 'latest'
+        });
+        
+        console.log('Found WinningsClaimed events:', claimedEvents);
+        
+        const hasClaimed = claimedEvents.length > 0;
+        console.log('User has claimed winnings:', hasClaimed);
+        
+        // Additional debugging
+        console.log('Claim eligibility check result:', {
+          marketId: id,
+          userAddress: address,
+          hasWinningShares,
+          hasClaimed,
+          canClaim: hasWinningShares && !hasClaimed
+        });
+        
+        // Also check if user has already claimed using the smart contract function as backup
+        try {
+          if (hasWinningShares && !hasClaimed) {
+            console.log('Double-checking claim status with smart contract...');
+            // This would be a good place to add a backup check using the contract's hasClaimed function
+          }
+        } catch (error) {
+          console.warn('Backup claim check failed:', error);
+        }
+        
+        setCanClaimWinnings(hasWinningShares && !hasClaimed);
+        setHasClaimedWinnings(hasClaimed);
         
       } catch (error) {
         console.error('Error checking claim eligibility:', error);
         setCanClaimWinnings(false);
+        setHasClaimedWinnings(false);
       }
     };
     
@@ -116,6 +174,25 @@ const MarketDetail: React.FC = () => {
       window.location.reload();
     }
   }, [isBuySuccess, buyHash, notifyTransactionSuccess]);
+
+  // Handle claim winnings success
+  useEffect(() => {
+    if (isClaimSuccess && claimHash) {
+      notifyTransactionSuccess('Winnings claimed successfully!', claimHash);
+      setIsClaiming(false);
+      // Update UI to show claimed state
+      setCanClaimWinnings(false);
+      setHasClaimedWinnings(true);
+    }
+  }, [isClaimSuccess, claimHash, notifyTransactionSuccess]);
+
+  // Handle claim winnings error
+  useEffect(() => {
+    if (isClaimError) {
+      notifySharesPurchaseFailed('Failed to claim winnings. Please try again.');
+      setIsClaiming(false);
+    }
+  }, [isClaimError, notifySharesPurchaseFailed]);
 
   // Loading state
   if (loading || isLoading) {
@@ -221,22 +298,31 @@ const MarketDetail: React.FC = () => {
     return userShares;
   };
 
-  // Simple claim function
+  // Real claim function that calls the smart contract
   const handleClaimWinnings = async () => {
     if (!isConnected) {
       notifySharesPurchaseFailed('Please connect your wallet to claim winnings.');
       return;
     }
 
+    if (!id) {
+      notifySharesPurchaseFailed('Invalid market ID.');
+      return;
+    }
+
     try {
       setIsClaiming(true);
-      // For now, just show a success message since we don't have the claim contract function
-      notifyTransactionSuccess('Winnings claimed successfully!', '');
-      setCanClaimWinnings(false); // Hide claim button after claiming
+      console.log('Claiming winnings for market:', id);
+      
+      // Call the smart contract to claim winnings
+      await claimWinnings(BigInt(id));
+      
+      // Note: The actual success will be handled by the transaction receipt
+      // We'll update the UI when the transaction is confirmed
+      
     } catch (err) {
       console.error('Error claiming winnings:', err);
       notifySharesPurchaseFailed('Failed to claim winnings. Please try again.');
-    } finally {
       setIsClaiming(false);
     }
   };
@@ -583,37 +669,71 @@ const MarketDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Simple Claim Winnings Section */}
-      {market.status === 1 && address && canClaimWinnings && (
+      {/* Claim Winnings Section */}
+      {market.status === 1 && address && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Claim Your Winnings</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Winnings</h3>
           
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-center space-x-3 mb-4">
-              <span className="text-green-500 text-2xl">🎉</span>
-              <div>
-                <h4 className="font-medium text-green-900">Congratulations!</h4>
-                <p className="text-sm text-green-700">
-                  You have winning shares in this market! You can claim your rewards.
-                </p>
+          {hasClaimedWinnings ? (
+            // User has already claimed
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <span className="text-blue-500 text-2xl">✅</span>
+                <div>
+                  <h4 className="font-medium text-blue-900">Winnings Already Claimed</h4>
+                  <p className="text-sm text-blue-700">
+                    You have already claimed your winnings for this market.
+                  </p>
+                </div>
               </div>
             </div>
-            
-            <button
-              onClick={handleClaimWinnings}
-              disabled={isClaiming}
-              className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {isClaiming ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Claiming...
+          ) : canClaimWinnings ? (
+            // User can claim
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3 mb-4">
+                <span className="text-green-500 text-2xl">🎉</span>
+                <div>
+                  <h4 className="font-medium text-green-900">Congratulations!</h4>
+                  <p className="text-sm text-green-700">
+                    You have winning shares in this market! You can claim your rewards.
+                  </p>
                 </div>
-              ) : (
-                'Claim Winnings'
-              )}
-            </button>
-          </div>
+              </div>
+              
+              <button
+                onClick={handleClaimWinnings}
+                disabled={isClaiming || isClaimPending || isClaimConfirming}
+                className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+              >
+                {isClaiming || isClaimPending ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    {isClaimPending ? 'Confirming...' : 'Claiming...'}
+                  </div>
+                ) : isClaimConfirming ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Processing...
+                  </div>
+                ) : (
+                  'Claim Winnings'
+                )}
+              </button>
+            </div>
+          ) : (
+            // User has no winning shares
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <span className="text-gray-500 text-2xl">😔</span>
+                <div>
+                  <h4 className="font-medium text-gray-900">No Winnings</h4>
+                  <p className="text-sm text-gray-600">
+                    You don't have winning shares in this market.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

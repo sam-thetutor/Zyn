@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-import { useUserProfile } from '../hooks/useUserProfile';
+import { useUserActivity } from '../hooks/useUserActivity';
 import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
 import NotificationContainer from '../components/NotificationContainer';
 import { formatEther } from 'viem';
@@ -9,12 +9,12 @@ import { Link } from 'react-router-dom';
 const Profile: React.FC = () => {
   const { isConnected, address } = useAccount();
   const { 
-    userActivities, 
+    activities: userActivities, 
     loading, 
     error, 
     stats,
-    refetchActivities 
-  } = useUserProfile();
+    refetch: refetchActivities 
+  } = useUserActivity();
   const { notifyWalletConnectionFailed } = useNotificationHelpers();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'activities' | 'markets'>('overview');
@@ -120,7 +120,7 @@ const Profile: React.FC = () => {
             {[
               { id: 'overview', label: 'Overview', count: null },
               { id: 'activities', label: 'Activities', count: userActivities.length },
-              { id: 'markets', label: 'My Markets', count: stats.marketsCreated }
+              { id: 'markets', label: 'My Markets', count: stats.totalMarkets }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -153,7 +153,7 @@ const Profile: React.FC = () => {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Markets Created</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.marketsCreated}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalMarkets}</p>
                 </div>
               </div>
             </div>
@@ -164,10 +164,8 @@ const Profile: React.FC = () => {
                   <span className="text-2xl">💰</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Invested</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {formatEther(stats.totalInvested)} ETH
-                  </p>
+                  <p className="text-sm font-medium text-gray-600">Total Trades</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalTrades}</p>
                 </div>
               </div>
             </div>
@@ -178,8 +176,8 @@ const Profile: React.FC = () => {
                   <span className="text-2xl">🎯</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Active Positions</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.activePositions}</p>
+                  <p className="text-sm font-medium text-gray-600">Markets Resolved</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalResolved}</p>
                 </div>
               </div>
             </div>
@@ -190,8 +188,8 @@ const Profile: React.FC = () => {
                   <span className="text-2xl">🏆</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Markets Won</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.marketsWon}</p>
+                  <p className="text-sm font-medium text-gray-600">Total Winnings</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatEther(stats.totalWinnings)} CELO</p>
                 </div>
               </div>
             </div>
@@ -220,28 +218,26 @@ const Profile: React.FC = () => {
                         <div>
                           <p className="font-medium text-gray-900">
                             {activity.type === 'market_created' && 'Created Market'}
-                            {activity.type === 'shares_bought' && `Bought ${activity.outcome ? 'YES' : 'NO'} Shares`}
+                            {activity.type === 'shares_bought' && 'Bought Shares'}
                             {activity.type === 'market_resolved' && 'Market Resolved'}
-                            {activity.type === 'claim' && 'Claimed Winnings'}
+                            {activity.type === 'winnings_claimed' && 'Claimed Winnings'}
                           </p>
-                          {activity.marketQuestion && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              {activity.marketQuestion}
-                            </p>
-                          )}
+                          <p className="text-sm text-gray-600 mt-1">
+                            {activity.question}
+                          </p>
                         </div>
                         <div className="text-right">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getActivityColor(activity.type)}`}>
                             {activity.type.replace('_', ' ').toUpperCase()}
                           </span>
                           <p className="text-sm text-gray-500 mt-1">
-                            {formatDate(activity.timestamp)}
+                            {formatDate(new Date(activity.timestamp * 1000))}
                           </p>
                         </div>
                       </div>
-                      {activity.amount && (
+                      {activity.details.amount && (
                         <p className="text-sm text-gray-600 mt-2">
-                          Amount: {formatEther(activity.amount || 0n)} ETH
+                          Amount: {formatEther(activity.details.amount)} CELO
                         </p>
                       )}
                     </div>
@@ -269,7 +265,7 @@ const Profile: React.FC = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading markets...</p>
               </div>
-            ) : stats.marketsCreated > 0 ? (
+            ) : stats.totalMarkets > 0 ? (
               <div className="space-y-4">
                 {userActivities
                   .filter(activity => activity.type === 'market_created')
@@ -281,13 +277,11 @@ const Profile: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h3 className="font-medium text-gray-900 mb-2">
-                            {activity.marketQuestion}
+                            {activity.question}
                           </h3>
                           <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span>Created: {formatDate(activity.timestamp)}</span>
-                            {activity.marketId && (
-                              <span>Market ID: {activity.marketId.toString()}</span>
-                            )}
+                            <span>Created: {formatDate(new Date(activity.timestamp * 1000))}</span>
+                            <span>Market ID: {activity.marketId.toString()}</span>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -295,7 +289,7 @@ const Profile: React.FC = () => {
                             Active
                           </span>
                           <Link
-                            to={`/market/${activity.marketId?.toString() || '0'}`}
+                            to={`/market/${activity.marketId.toString()}`}
                             className="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
                           >
                             View
