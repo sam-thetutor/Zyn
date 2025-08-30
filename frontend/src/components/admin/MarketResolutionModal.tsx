@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Market } from '../../utils/contracts';
+import type { Market } from '../../utils/contracts';
 import { formatEther } from 'viem';
 
 interface MarketResolutionModalProps {
@@ -62,12 +62,27 @@ const MarketResolutionModal: React.FC<MarketResolutionModalProps> = ({
           <div className="bg-gray-50 rounded-lg p-4">
             <h3 className="font-semibold text-gray-900 mb-2">Market #{market.id.toString()}</h3>
             <p className="text-gray-700 mb-2">{market.question}</p>
+            
+            {/* Description */}
+            {market.description && (
+              <p className="text-gray-600 mb-2 text-sm">
+                <strong>Description:</strong> {market.description}
+              </p>
+            )}
+            
+            {/* Source */}
+            {market.source && (
+              <p className="text-gray-600 mb-2 text-sm">
+                <strong>Source:</strong> {market.source}
+              </p>
+            )}
+            
             <div className="text-sm text-gray-500 space-y-1">
               <p>Category: {market.category}</p>
               <p>End Time: {formatTime(market.endTime)}</p>
-                      <p>Total Pool: {formatEther(market.totalPool)} CELO</p>
-        <p>Yes Shares: {formatEther(market.totalYes)} CELO</p>
-        <p>No Shares: {formatEther(market.totalNo)} CELO</p>
+              <p>Total Pool: {formatEther(market.totalPool)} CELO</p>
+              <p>Yes Shares: {formatEther(market.totalYes)} CELO</p>
+              <p>No Shares: {formatEther(market.totalNo)} CELO</p>
             </div>
           </div>
         </div>

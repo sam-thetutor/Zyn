@@ -3,26 +3,66 @@ import { useNavigate } from 'react-router-dom';
 import { useAccount, useBalance, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
-import { CONTRACTS } from '../utils/constants';
+import { useContractAddress } from '../hooks/useContractAddress';
 
 const CreateMarket: React.FC = () => {
   const navigate = useNavigate();
   const { address, isConnected } = useAccount();
   const { data: balance } = useBalance({ address });
-  const { creationFee, tradingFee } = usePredictionMarket();
+  
+  // Get contract information and network status
+  const { 
+    coreContractAddress, 
+    coreContractABI, 
+    isSupportedNetwork,
+    currentNetwork 
+  } = useContractAddress();
+  
+  // Get market creation fee and create market function
+  const { marketCreationFee, createMarket: createMarketFunction } = usePredictionMarket();
+
+  // Helper function to get current local time in readable format
+  const getCurrentLocalTime = () => {
+    const now = new Date();
+    return {
+      local: now.toLocaleString(),
+      utc: now.toISOString(),
+      timestamp: Math.floor(now.getTime() / 1000)
+    };
+  };
+
+  // Debug network detection
+  useEffect(() => {
+    console.log('🔍 Network Detection Debug:');
+    console.log('  - isConnected:', isConnected);
+    console.log('  - coreContractAddress:', coreContractAddress);
+    console.log('  - coreContractABI:', coreContractABI);
+    console.log('  - isSupportedNetwork:', isSupportedNetwork);
+    console.log('  - currentNetwork:', currentNetwork);
+  }, [isConnected, coreContractAddress, coreContractABI, isSupportedNetwork, currentNetwork]);
 
   const [formData, setFormData] = useState({
     question: '',
     description: '',
     category: '',
     image: '',
+    source: '',
     endTime: ''
   });
+  
+  // Set default end time to 10 minutes from now when component mounts
+  useEffect(() => {
+    const now = new Date();
+    const defaultEndTime = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes from now
+    // Format as local datetime string for the input
+    const localDateTime = defaultEndTime.toLocaleString('sv-SE').slice(0, 16); // Use Swedish locale for YYYY-MM-DDTHH:mm format
+    setFormData(prev => ({ ...prev, endTime: localDateTime }));
+  }, []);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { writeContract, data: hash } = useWriteContract();
-  const { isLoading: isPending, isSuccess, isError } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, error: writeError, isError: isWriteError } = useWriteContract();
+  const { isLoading: isPending, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -42,20 +82,39 @@ const CreateMarket: React.FC = () => {
     if (!formData.question.trim()) {
       newErrors.question = 'Question is required';
     }
+
     if (!formData.description.trim()) {
       newErrors.description = 'Description is required';
+    } else if (formData.description.length < 10) {
+      newErrors.description = 'Description must be at least 10 characters';
     }
+
     if (!formData.category.trim()) {
       newErrors.category = 'Category is required';
     }
-    if (!formData.endTime) {
-      newErrors.endTime = 'End time is required';
-    } else {
-      const selectedTime = new Date(formData.endTime).getTime();
-      const now = Date.now();
-      if (selectedTime <= now) {
+
+    if (formData.endTime) {
+      // Convert local time input to UTC for validation
+      const localDateTime = new Date(formData.endTime);
+      const utcTime = Math.floor(localDateTime.getTime() / 1000);
+      const now = Math.floor(Date.now() / 1000);
+      const minEndTime = now + 300; // 5 minutes minimum (contract requires 2 minutes, add buffer)
+      
+      console.log('Validation - Local input time:', formData.endTime);
+      console.log('Validation - Local DateTime object:', localDateTime);
+      console.log('Validation - UTC timestamp:', utcTime, '(', new Date(utcTime * 1000).toISOString(), ')');
+      console.log('Validation - Current time:', getCurrentLocalTime());
+      console.log('Validation - Minimum required:', minEndTime, '(', new Date(minEndTime * 1000).toISOString(), ')');
+      console.log('Validation - Time difference:', utcTime - now, 'seconds');
+      
+      if (utcTime <= now) {
         newErrors.endTime = 'End time must be in the future';
+      } else if (utcTime < minEndTime) {
+        const minutesRequired = Math.ceil((minEndTime - now) / 60);
+        newErrors.endTime = `End time must be at least 5 minutes in the future (currently ${minutesRequired} minutes required)`;
       }
+    } else {
+      newErrors.endTime = 'End time is required';
     }
 
     setErrors(newErrors);
@@ -66,81 +125,93 @@ const CreateMarket: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🚀 Create Market button clicked!');
+    console.log('�� Form state:', formData);
+    console.log('🔗 Wallet connected:', isConnected);
+    console.log('🌐 Supported network:', isSupportedNetwork);
+    console.log('📋 Contract address:', coreContractAddress);
+    console.log('📋 Contract ABI:', coreContractABI);
+    
     if (!isConnected) {
+      console.log('❌ Wallet not connected');
       setErrors({ general: 'Please connect your wallet first' });
       return;
     }
 
+    if (!isSupportedNetwork) {
+      console.log('❌ Network not supported');
+      setErrors({ general: `Please connect to a supported network (Celo Alfajores or Base Mainnet). Current network: ${currentNetwork || 'Unknown'}` });
+      return;
+    }
+
     if (!validateForm()) {
+      console.log('❌ Form validation failed');
       return;
     }
 
-    if (!creationFee) {
-      setErrors({ general: 'Unable to get creation fee' });
+    if (!coreContractAddress || !coreContractABI) {
+      console.log('❌ Contract not found');
+      setErrors({ general: 'Contract not found on current network' });
       return;
-    }
-
-    // Check if user has sufficient balance
-    if (balance && creationFee) {
-      let feeValue: bigint;
-      
-      try {
-        if (typeof creationFee === 'string') {
-          // Convert decimal string to wei
-          if (creationFee.includes('.')) {
-            const [whole, decimal] = creationFee.split('.');
-            const paddedDecimal = decimal.padEnd(18, '0');
-            feeValue = BigInt(whole + paddedDecimal);
-          } else {
-            feeValue = BigInt(creationFee);
-          }
-        } else {
-          feeValue = creationFee;
-        }
-        
-        if (balance.value < feeValue) {
-          setErrors({ general: 'Insufficient balance for creation fee' });
-          return;
-        }
-      } catch (error) {
-        console.error('Error processing creation fee:', error);
-        setErrors({ general: 'Error processing creation fee' });
-        return;
-      }
     }
 
     try {
+      console.log('✅ All checks passed, proceeding with market creation...');
       setIsSubmitting(true);
       
-      const endTime = Math.floor(new Date(formData.endTime).getTime() / 1000);
+      // Convert local time input to UTC for blockchain
+      const localDateTime = new Date(formData.endTime);
+      const endTime = Math.floor(localDateTime.getTime() / 1000);
       
-      // Convert creation fee to wei for the transaction
-      let feeValue: bigint;
-      try {
-        if (typeof creationFee === 'string') {
-          if (creationFee.includes('.')) {
-            const [whole, decimal] = creationFee.split('.');
-            const paddedDecimal = decimal.padEnd(18, '0');
-            feeValue = BigInt(whole + paddedDecimal);
-          } else {
-            feeValue = BigInt(creationFee);
-          }
-        } else {
-          feeValue = creationFee;
-        }
-      } catch (error) {
-        console.error('Error converting creation fee to wei:', error);
-        setErrors({ general: 'Error processing creation fee' });
+      // Debug logging with both local and UTC times
+      console.log('Form end time input (local):', formData.endTime);
+      console.log('Local DateTime object:', localDateTime);
+      console.log('Calculated UTC Unix timestamp:', endTime);
+      console.log('UTC time string:', new Date(endTime * 1000).toISOString());
+      console.log('Current time:', getCurrentLocalTime());
+      console.log('Time difference (seconds):', endTime - Math.floor(Date.now() / 1000));
+      
+      // Double-check validation using UTC time
+      const now = Math.floor(Date.now() / 1000);
+      if (endTime <= now) {
+        setErrors({ general: 'End time must be in the future. Please refresh and try again.' });
+        return;
+      }
+      
+      if (endTime < now + 300) { // 5 minutes minimum
+        setErrors({ general: 'End time must be at least 5 minutes in the future. Please refresh and try again.' });
+        return;
+      }
+      
+      console.log('✅ Time validation passed - End time is valid for blockchain');
+
+      // Use market creation fee instead of initial liquidity
+      const marketCreationFeeAmount = parseEther(marketCreationFee || '0.001');
+      
+      console.log('💰 Market creation fee amount:', formatEther(marketCreationFeeAmount), 'CELO');
+      
+      // Check if user has sufficient balance for market creation fee
+      if (balance && balance.value < marketCreationFeeAmount) {
+        setErrors({ general: `Insufficient balance. You need at least ${formatEther(marketCreationFeeAmount)} CELO for market creation fee.` });
         return;
       }
 
-      writeContract({
-        address: CONTRACTS.PREDICTION_MARKET.address,
-        abi: CONTRACTS.PREDICTION_MARKET.abi,
+      console.log('📝 Calling writeContract with:', {
+        address: coreContractAddress,
         functionName: 'createMarket',
-        args: [formData.question, formData.description, formData.category, formData.image, BigInt(endTime)],
-        value: feeValue
+        args: [formData.question, formData.description, formData.category, formData.image, formData.source, BigInt(endTime)],
+        value: marketCreationFeeAmount
       });
+
+      writeContract({
+        address: coreContractAddress,
+        abi: coreContractABI,
+        functionName: 'createMarket',
+        args: [formData.question, formData.description, formData.category, formData.image, formData.source, BigInt(endTime)],
+        value: marketCreationFeeAmount // Use the market creation fee
+      });
+      
+      console.log('✅ writeContract called successfully');
     } catch (error) {
       console.error('Error creating market:', error);
       setErrors({ general: 'Failed to create market. Please try again.' });
@@ -159,32 +230,13 @@ const CreateMarket: React.FC = () => {
     }
   }, [isSuccess, navigate]);
 
-  // Format fees for display
-  const formatFee = (fee: bigint | string | undefined) => {
-    if (!fee) return '0';
-    
-    try {
-      let feeValue: bigint;
-      
-      if (typeof fee === 'string') {
-        // If it's a decimal string like "0.00005", convert it properly
-        if (fee.includes('.')) {
-          const [whole, decimal] = fee.split('.');
-          const paddedDecimal = decimal.padEnd(18, '0');
-          feeValue = BigInt(whole + paddedDecimal);
-        } else {
-          feeValue = BigInt(fee);
-        }
-      } else {
-        feeValue = fee;
-      }
-      
-      return (Number(feeValue) / 1e18).toFixed(5);
-    } catch (error) {
-      console.warn('Error formatting fee:', error, 'fee:', fee);
-      return '0';
+  // Monitor writeContract errors
+  useEffect(() => {
+    if (isWriteError && writeError) {
+      console.error('❌ WriteContract error:', writeError);
+      setErrors({ general: `Transaction failed: ${writeError.message || 'Unknown error'}` });
     }
-  };
+  }, [isWriteError, writeError]);
 
   if (!isConnected) {
     return (
@@ -234,6 +286,37 @@ const CreateMarket: React.FC = () => {
         </div>
       )}
 
+      {/* Network Status */}
+      <div className="card mb-6">
+        <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Network Status</h3>
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <span style={{ color: 'var(--color-text-secondary)' }}>Wallet Connected:</span>
+            <span style={{ color: isConnected ? 'var(--color-success)' : 'var(--color-danger)' }}>
+              {isConnected ? '✅ Yes' : '❌ No'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: 'var(--color-text-secondary)' }}>Network:</span>
+            <span style={{ color: currentNetwork ? 'var(--color-success)' : 'var(--color-danger)' }}>
+              {currentNetwork || '❌ Not Supported'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: 'var(--color-text-secondary)' }}>Contract Address:</span>
+            <span style={{ color: coreContractAddress ? 'var(--color-success)' : 'var(--color-danger)' }}>
+              {coreContractAddress ? `${coreContractAddress.slice(0, 6)}...${coreContractAddress.slice(-4)}` : '❌ Not Found'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: 'var(--color-text-secondary)' }}>ABI Available:</span>
+            <span style={{ color: coreContractABI ? 'var(--color-success)' : 'var(--color-danger)' }}>
+              {coreContractABI ? '✅ Yes' : '❌ No'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Balance and Fee Information */}
       {isConnected && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -247,10 +330,10 @@ const CreateMarket: React.FC = () => {
           <div className="card">
             <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Market Creation Fee</h3>
             <div className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
-              {creationFee ? formatFee(creationFee) : 'Loading...'}
+              {marketCreationFee ? `${marketCreationFee} CELO` : 'Loading...'}
             </div>
             <div className="text-sm text-secondary mt-1">
-              One-time fee to create a new market
+              Fee to create a new prediction market. After creation, you can buy shares on any side.
             </div>
           </div>
         </div>
@@ -262,7 +345,7 @@ const CreateMarket: React.FC = () => {
           {/* Question Input */}
           <div className="card">
             <label htmlFor="question" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              Market Question *
+              Question *
             </label>
             <input
               type="text"
@@ -270,12 +353,13 @@ const CreateMarket: React.FC = () => {
               name="question"
               value={formData.question}
               onChange={handleInputChange}
-              placeholder="e.g., Will Bitcoin reach $100,000 by the end of 2024?"
+              placeholder="What will happen?"
               className="input-field"
               style={{ 
                 borderColor: errors.question ? 'var(--color-danger)' : 'var(--color-border-light)',
                 backgroundColor: errors.question ? 'rgba(239, 68, 68, 0.1)' : 'var(--color-bg-secondary)'
               }}
+              maxLength={200}
             />
             {errors.question && (
               <p className="mt-1 text-sm" style={{ color: 'var(--color-danger)' }}>{errors.question}</p>
@@ -285,30 +369,34 @@ const CreateMarket: React.FC = () => {
           {/* Description Input */}
           <div className="card">
             <label htmlFor="description" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              Description and sources *
+              Description *
             </label>
             <textarea
               id="description"
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              placeholder="Provide additional context and details about the prediction market..."
-              rows={4}
+              placeholder="Provide more details about the prediction..."
+              rows={3}
               className="input-field"
               style={{ 
                 borderColor: errors.description ? 'var(--color-danger)' : 'var(--color-border-light)',
                 backgroundColor: errors.description ? 'rgba(239, 68, 68, 0.1)' : 'var(--color-bg-secondary)'
               }}
+              maxLength={500}
             />
             {errors.description && (
               <p className="mt-1 text-sm" style={{ color: 'var(--color-danger)' }}>{errors.description}</p>
             )}
+            <div className="text-xs text-secondary mt-1">
+              {formData.description.length}/500 characters
+            </div>
           </div>
 
           {/* Category and Image Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Category Input */}
-            <div className="card">
+            <div className="card mt-4">
               <label htmlFor="category" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
                 Category *
               </label>
@@ -361,17 +449,58 @@ const CreateMarket: React.FC = () => {
             </div>
           </div>
 
-          {/* End Time Input */}
+          {/* Source Input */}
           <div className="card">
+            <label htmlFor="source" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+              Source (Optional)
+            </label>
+            <input
+              type="text"
+              id="source"
+              name="source"
+              value={formData.source}
+              onChange={handleInputChange}
+              placeholder="e.g., Reuters, CNN, Official Statement..."
+              className="input-field"
+              style={{ 
+                borderColor: errors.source ? 'var(--color-danger)' : 'var(--color-border-light)',
+                backgroundColor: errors.source ? 'rgba(239, 68, 68, 0.1)' : 'var(--color-bg-secondary)'
+              }}
+              maxLength={100}
+            />
+            {errors.source && (
+              <p className="mt-1 text-sm" style={{ color: 'var(--color-danger)' }}>{errors.source}</p>
+            )}
+            <div className="text-xs text-secondary mt-1">
+              Where did this information come from?
+            </div>
+          </div>
+
+          {/* End Time Input */}
+          <div className="card mt-4">
             <label htmlFor="endTime" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
               Market End Time *
             </label>
+            
+            {/* Current time display */}
+            <div className="mb-2 p-2 rounded text-xs" style={{ backgroundColor: 'var(--color-bg-tertiary)' }}>
+              <div style={{ color: 'var(--color-text-secondary)' }}>
+                🕐 <strong>Current time:</strong> {getCurrentLocalTime().local} (Local) / {getCurrentLocalTime().utc} (UTC)
+              </div>
+            </div>
+            
             <input
               type="datetime-local"
               id="endTime"
               name="endTime"
               value={formData.endTime}
               onChange={handleInputChange}
+              min={(() => {
+                const now = new Date();
+                const minTime = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
+                // Format as local datetime string for the input
+                return minTime.toLocaleString('sv-SE').slice(0, 16);
+              })()}
               className="input-field"
               style={{ 
                 borderColor: errors.endTime ? 'var(--color-danger)' : 'var(--color-border-light)',
@@ -381,21 +510,10 @@ const CreateMarket: React.FC = () => {
             {errors.endTime && (
               <p className="mt-1 text-sm" style={{ color: 'var(--color-danger)' }}>{errors.endTime}</p>
             )}
-            <div className="text-sm text-secondary mt-1">
-              When will this prediction market resolve? Choose a future date and time.
-            </div>
+           
           </div>
 
-          {/* Trading Fee Information */}
-          <div className="card" style={{ backgroundColor: 'var(--color-bg-accent)', borderColor: 'var(--color-border-accent)' }}>
-            <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Trading Fee</h3>
-            <div className="text-xl font-bold" style={{ color: 'var(--color-secondary)' }}>
-              {tradingFee ? formatFee(tradingFee) : 'Loading...'}
-            </div>
-            <div className="text-sm text-secondary mt-1">
-              Fee charged on each trade (buy/sell) in this market
-            </div>
-          </div>
+          
 
           {/* Error Display */}
           {errors.general && (
@@ -404,8 +522,17 @@ const CreateMarket: React.FC = () => {
             </div>
           )}
 
+          {/* WriteContract Error Display */}
+          {isWriteError && writeError && (
+            <div className="card" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'var(--color-danger)' }}>
+              <p className="text-sm" style={{ color: 'var(--color-danger)' }}>
+                <strong>Transaction Error:</strong> {writeError.message || 'Unknown error occurred'}
+              </p>
+            </div>
+          )}
+
           {/* Submit Button */}
-          <div className="flex justify-end mb-8">
+          <div className="flex justify-end mb-8 mt-4">
             <button
               type="submit"
               disabled={isSubmitting || isPending}

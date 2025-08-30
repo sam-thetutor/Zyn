@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useAccount } from 'wagmi';
-import { formatEther, parseEther } from 'viem';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
-import { useMarketData } from '../hooks/useMarketData';
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { CONTRACTS } from '../utils/constants';
-import type { Market } from '../utils/contracts';
+import { useContractAddress } from '../hooks/useContractAddress';
+import { formatEther, parseEther } from 'viem';
+import type { Market, WinnerInfo } from '../utils/contracts';
+import MarketParticipants from '../components/market/MarketParticipants';
 
 interface MarketDetailData extends Market {
   timeRemaining: number;
   isEnded: boolean;
   isActive: boolean;
-  userYesShares: bigint;
-  userNoShares: bigint;
+  userYesShares: number;
+  userNoShares: number;
   hasParticipated: boolean;
   participationSide: boolean | null;
 }
@@ -21,9 +20,10 @@ interface MarketDetailData extends Market {
 const MarketDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isConnected, address } = useAccount();
-  const { creationFee, tradingFee } = usePredictionMarket();
-  const { getMarket, getUserShares } = useMarketData();
+  const { isConnected, address, chainId } = useAccount();
+  const { marketCreationFee } = usePredictionMarket();
+  const { getMarket, getUserShares } = usePredictionMarket();
+  const { contractAddress, contractABI, isSupportedNetwork } = useContractAddress();
 
   const [market, setMarket] = useState<MarketDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,6 +31,7 @@ const MarketDetail: React.FC = () => {
   const [tradeAmount, setTradeAmount] = useState<string>('');
   const [tradeType, setTradeType] = useState<'yes' | 'no' | null>(null);
   const [showTradeForm, setShowTradeForm] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Contract interaction hooks
   const { writeContract, data: hash } = useWriteContract();
@@ -38,40 +39,30 @@ const MarketDetail: React.FC = () => {
 
   // Read user participation status
   const { data: hasParticipated } = useReadContract({
-    address: CONTRACTS.PREDICTION_MARKET.address,
-    abi: [
-      {
-        inputs: [
-          { name: "marketId", type: "uint256" },
-          { name: "user", type: "address" }
-        ],
-        name: "hasUserParticipated",
-        outputs: [{ name: "", type: "bool" }],
-        stateMutability: "view",
-        type: "function"
-      }
-    ],
+    address: contractAddress || '0x0000000000000000000000000000000000000000',
+    abi: contractABI || [],
     functionName: 'hasUserParticipated',
     args: [id ? BigInt(id) : 0n, address || '0x0000000000000000000000000000000000000000']
   });
 
   const { data: participationSide } = useReadContract({
-    address: CONTRACTS.PREDICTION_MARKET.address,
-    abi: [
-      {
-        inputs: [
-          { name: "marketId", type: "uint256" },
-          { name: "user", type: "address" }
-        ],
-        name: "getUserParticipationSide",
-        outputs: [{ name: "", type: "bool" }],
-        stateMutability: "view",
-        type: "function"
-      }
-    ],
+    address: contractAddress || '0x0000000000000000000000000000000000000000',
+    abi: contractABI || [],
     functionName: 'getUserParticipationSide',
     args: [id ? BigInt(id) : 0n, address || '0x0000000000000000000000000000000000000000']
   });
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Fetch market data
   useEffect(() => {
@@ -90,13 +81,15 @@ const MarketDetail: React.FC = () => {
         }
 
         // Get user shares if connected
-        let userYesShares = 0n;
-        let userNoShares = 0n;
+        let userYesShares = 0;
+        let userNoShares = 0;
         
         if (isConnected && address) {
           try {
-            userYesShares = await getUserShares(marketId, address, true);
-            userNoShares = await getUserShares(marketId, address, false);
+            const yesShares = await getUserShares(marketId, address, true);
+            const noShares = await getUserShares(marketId, address, false);
+            userYesShares = Number(yesShares);
+            userNoShares = Number(noShares);
           } catch (err) {
             console.warn('Could not fetch user shares:', err);
           }
@@ -115,8 +108,8 @@ const MarketDetail: React.FC = () => {
           isActive,
           userYesShares,
           userNoShares,
-          hasParticipated: hasParticipated || false,
-          participationSide: hasParticipated ? (participationSide || null) : null,
+          hasParticipated: Boolean(hasParticipated),
+          participationSide: hasParticipated ? (Boolean(participationSide) || null) : null,
         });
       } catch (err) {
         console.error('Error fetching market:', err);
@@ -136,20 +129,13 @@ const MarketDetail: React.FC = () => {
     try {
       const amount = parseEther(tradeAmount);
       
+      if (!contractAddress || !contractABI) {
+        throw new Error('Contract not found on current network');
+      }
+
       writeContract({
-        address: CONTRACTS.PREDICTION_MARKET.address,
-        abi: [
-          {
-            inputs: [
-              { name: "marketId", type: "uint256" },
-              { name: "outcome", type: "bool" }
-            ],
-            name: "buyShares",
-            outputs: [],
-            stateMutability: "payable",
-            type: "function"
-          }
-        ],
+        address: contractAddress,
+        abi: contractABI,
         functionName: 'buyShares',
         args: [market.id, tradeType === 'yes'],
         value: amount
@@ -178,11 +164,25 @@ const MarketDetail: React.FC = () => {
     return `${seconds}s`;
   };
 
-  // Calculate percentages
+  // Calculate percentages and values
   const totalShares = market ? market.totalYes + market.totalNo : 0n;
   const yesPercentage = totalShares > 0n ? (Number(market!.totalYes) / Number(totalShares)) * 100 : 50;
   const noPercentage = 100 - yesPercentage;
   const totalVolume = market ? market.totalYes + market.totalNo : 0n;
+
+  // Calculate potential payouts
+  const calculatePotentialPayout = (shares: number, side: boolean) => {
+    if (shares === 0) return '0.00';
+    if (totalShares === 0n) return '0.00';
+    
+    const totalPayout = Number(totalVolume);
+    const userShare = shares / Number(totalShares);
+    return userShare.toFixed(2);
+  };
+
+  // Quick amount buttons
+  const quickAmounts = [0.1, 0.5, 1.0, 5.0, 10.0];
+  const quickPercentages = [25, 50];
 
   // Check if user can trade
   const canTradeYes = !market?.hasParticipated || market?.participationSide === true;
@@ -191,19 +191,19 @@ const MarketDetail: React.FC = () => {
   const getStatusBadge = () => {
     if (market?.status === 1) { // 1 = RESOLVED status
       return (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-accent)' }}>
+        <span className="status-badge status-resolved">
           Resolved
         </span>
       );
     } else if (market?.isEnded) {
       return (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-white" style={{ backgroundColor: '#f59e0b' }}>
+        <span className="status-badge status-ended">
           Ended
         </span>
       );
     } else {
       return (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-primary)' }}>
+        <span className="status-badge status-active">
           Active
         </span>
       );
@@ -214,332 +214,412 @@ const MarketDetail: React.FC = () => {
     return formatEther(fee);
   };
 
-  return (
-    <div className="container">
-      {/* Header with proper spacing */}
-      <div className="mt-8 mb-6">
-        <Link to="/markets" className="inline-flex items-center text-secondary hover:text-primary mb-4 transition-colors">
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Markets
-        </Link>
-      </div>
-
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full w-8 h-8 border-b-2" style={{ borderColor: 'var(--color-primary)' }}></div>
-          <p className="mt-2 text-secondary">Loading market details...</p>
+  // Check if connected to supported network
+  if (isConnected && !isSupportedNetwork) {
+    return (
+      <div className="market-detail-container">
+        <div className="network-warning">
+          <h1>Market Details</h1>
+          <div className="warning-card">
+            <h2>⚠️ Wrong Network</h2>
+            <div className="warning-details">
+              <div className="warning-row">
+                <span>Current Network:</span>
+                <span>{chainId === 1 ? 'Ethereum Mainnet' : `Chain ID: ${chainId}`}</span>
+              </div>
+              <div className="warning-row">
+                <span>Required Networks:</span>
+                <span>Celo Alfajores Testnet or Base Mainnet</span>
+              </div>
+            </div>
+            <p>Your wallet is connected to an unsupported network. Please switch to Celo Alfajores testnet or Base mainnet to view market details.</p>
+          </div>
         </div>
-      ) : error ? (
-        <div className="text-center py-12">
-          <p style={{ color: 'var(--color-danger)' }}>Error loading market: {error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn-primary mt-4"
-          >
-            Try Again
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="market-detail-container">
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Loading market details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !market) {
+    return (
+      <div className="market-detail-container">
+        <div className="error-state">
+          <h1>Market Details</h1>
+          <div className="error-card">
+            <h2>❌ Error Loading Market</h2>
+            <p>{error || 'Market not found'}</p>
+            <button onClick={() => navigate('/markets')} className="btn-primary">
+              Back to Markets
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="market-detail-container">
+      {/* Hero Section */}
+      <div className="market-hero">
+        <div className="hero-navigation">
+          <button onClick={() => navigate('/markets')} className="nav-button">
+            🏠 Back to Markets
+          </button>
+          {/* <span className="market-id">📊 Market #{id}</span> */}
+          <button className="nav-button">
+            🔗 Share Market
           </button>
         </div>
-      ) : !market ? (
-        <div className="text-center py-12">
-          <p style={{ color: 'var(--color-danger)' }}>Market not found</p>
-          <Link to="/markets" className="btn-primary mt-4">
-            Back to Markets
-          </Link>
+        
+        <div className="hero-content">
+          <h1 className="market-question">{market.question}</h1>
+          
+          <div className="hero-meta">
+            {getStatusBadge()}
+            {/* <span className="time-remaining">
+              {market.isEnded ? 'Market has ended' : `Ends in: ${formatTimeRemaining(market.timeRemaining)}`}
+            </span> */}
+            {market.category && (
+              <>
+                <span className="market-category" style={{textTransform: 'uppercase'}}>{market.category}</span>
+              </>
+            )}
+          </div>
+          
+          <div className="hero-stats">
+            <div className="stat-item">
+              <span className="stat-percentage yes">{yesPercentage.toFixed(1)}%</span>
+              <span className="stat-label">Yes</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-percentage no">{noPercentage.toFixed(1)}%</span>
+              <span className="stat-label">No</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-volume">{formatEther(totalVolume)}</span>
+              <span className="stat-label">Total Volume (CELO)</span>
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Market Header */}
-          <div className="card mb-6">
-            <div className="flex flex-col lg:flex-row gap-6">
-              {/* Market Image */}
-              <div className="flex-shrink-0">
-                <div className="w-32 h-32 rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
-                  {market.image ? (
-                    <img 
-                      src={market.image} 
-                      alt={market.question}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                      }}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="market-content-grid">
+        {/* Left Panel - Market Information */}
+        <div className="left-panel">
+          <div className="info-card">
+            <h2>📋 Market Details</h2>
+            
+            {market.image && (
+              <div className="market-image">
+                <img src={market.image} alt={market.question} />
+              </div>
+            )}
+            
+            {market.description && (
+              <div className="info-section">
+                <h3>📝 Description</h3>
+                <p>{market.description}</p>
+              </div>
+            )}
+            
+            {market.source && (
+              <div className="info-section">
+                <h3>🔗 Source</h3>
+                <p>{market.source}</p>
+              </div>
+            )}
+            
+            <div className="info-section">
+              <h3>📊 Market Statistics</h3>
+              <div className="stats-list">
+                <div className="stat-row">
+                  <span>Creation Fee:</span>
+                  <span>{marketCreationFee ? marketCreationFee : 'Loading...'} CELO</span>
+                </div>
+                <div className="stat-row">
+                  <span>Trading Fee:</span>
+                  <span>0.05 CELO</span>
+                </div>
+                <div className="stat-row">
+                  <span>Created:</span>
+                  <span>{new Date(Number(market.createdAt) * 1000).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="info-section">
+              <h3>📋 Rules & Resolution</h3>
+              <p>Market will be resolved based on verifiable public sources. The outcome will be determined by the market creator or designated oracle.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Center Panel - Trading Interface */}
+        <div className="center-panel">
+          <div className="trading-card">
+            <h2>💰 Trade Shares</h2>
+            
+            {isConnected && market.hasParticipated && (
+              <div className="participation-notice">
+                <div className="notice-icon">⚠️</div>
+                <div className="notice-content">
+                  <h3>Already Participated</h3>
+                  <p>You {market.participationSide ? 'bought Yes shares' : 'bought No shares'}.</p>
+                </div>
+              </div>
+            )}
+            
+            {isConnected && !market.isEnded && market.status === 0 && (
+              <>
+                <div className="position-selector">
+                  <h3>🎯 Select Position</h3>
+                  <div className="position-buttons">
+                    <button
+                      onClick={() => setTradeType('yes')}
+                      className={`position-btn yes ${tradeType === 'yes' ? 'selected' : ''} ${!canTradeYes ? 'disabled' : ''}`}
+                      disabled={!canTradeYes}
+                    >
+                      <div className="position-label">YES</div>
+                      <div className="position-percentage">{yesPercentage.toFixed(1)}%</div>
+                      <div className="position-indicator">🟢</div>
+                    </button>
+                    <button
+                      onClick={() => setTradeType('no')}
+                      className={`position-btn no ${tradeType === 'no' ? 'selected' : ''} ${!canTradeNo ? 'disabled' : ''}`}
+                      disabled={!canTradeNo}
+                    >
+                      <div className="position-label">NO</div>
+                      <div className="position-percentage">{noPercentage.toFixed(1)}%</div>
+                      <div className="position-indicator">🔴</div>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="amount-input">
+                  <h3>💵 Amount to Trade</h3>
+                  <div className="input-wrapper">
+                    <input
+                      type="number"
+                      value={tradeAmount}
+                      onChange={(e) => setTradeAmount(e.target.value)}
+                      placeholder="0.00"
+                      min="0.001"
+                      step="0.001"
+                      className="amount-field"
                     />
-                  ) : null}
-                  <div className="w-full h-full flex items-center justify-center text-4xl font-bold hidden" style={{ color: 'var(--color-primary)' }}>
-                    {market.question.charAt(0).toUpperCase()}
-                  </div>
-                </div>
-              </div>
-
-              {/* Market Info */}
-              <div className="flex-1">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                      {market.question}
-                    </h1>
-                    {market.category && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mb-3" style={{ backgroundColor: 'var(--color-bg-accent)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-accent)' }}>
-                        {market.category}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Status Badge */}
-                  <div className="flex-shrink-0">
-                    {getStatusBadge()}
+                    <span className="currency">CELO</span>
                   </div>
                 </div>
 
-                {/* Market Description */}
-                {market.description && (
-                  <p className="text-secondary mb-4 leading-relaxed">
-                    {market.description}
-                  </p>
-                )}
-
-                {/* Time Remaining */}
-                <div className="text-sm text-secondary">
-                  {market.isEnded ? (
-                    <span>Market has ended</span>
-                  ) : (
-                    <span>Ends in: {formatTimeRemaining(market.timeRemaining)}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Market Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div className="card text-center">
-              <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-accent)' }}>
-                {yesPercentage.toFixed(1)}%
-              </div>
-              <div className="text-sm text-secondary">Yes Shares</div>
-            </div>
-            
-            <div className="card text-center">
-              <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-danger)' }}>
-                {noPercentage.toFixed(1)}%
-              </div>
-              <div className="text-sm text-secondary">No Shares</div>
-            </div>
-            
-            <div className="card text-center">
-              <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-primary)' }}>
-                {formatEther(totalVolume)}
-              </div>
-              <div className="text-sm text-secondary">Total Volume (CELO)</div>
-            </div>
-          </div>
-
-          {/* User Participation Status */}
-          {isConnected && hasParticipated && (
-            <div className="card mb-6" style={{ backgroundColor: 'var(--color-bg-accent)', borderColor: 'var(--color-border-accent)' }}>
-              <div className="flex items-center gap-3">
-                <svg className="w-5 h-5" style={{ color: 'var(--color-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <h3 className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    You have already participated in this market
-                  </h3>
-                  <p className="text-sm text-secondary">
-                    You {participationSide ? 'bought Yes shares' : 'bought No shares'}. 
-                    You cannot change your position once you've participated.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Trading Section */}
-          {isConnected && !market.isEnded && market.status === 0 && (
-            <div className="card mb-6">
-              <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-                Trade Shares
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Buy Yes */}
-                <div className="text-center">
-                  <h3 className="text-lg font-medium mb-3" style={{ color: 'var(--color-accent)' }}>
-                    Buy Yes Shares
-                  </h3>
-                  <p className="text-sm text-secondary mb-4">
-                    Bet that the outcome will be "Yes"
-                  </p>
-                  <button
-                    onClick={() => {
-                      setTradeType('yes');
-                      setShowTradeForm(true);
-                    }}
-                    disabled={!canTradeYes}
-                    className="btn-primary w-full"
-                    style={{ 
-                      opacity: canTradeYes ? 1 : 0.5,
-                      cursor: canTradeYes ? 'pointer' : 'not-allowed'
-                    }}
-                  >
-                    Buy Yes
-                  </button>
-                  {!canTradeYes && (
-                    <p className="text-xs text-secondary mt-2">
-                      {hasParticipated ? 'Already participated' : 'Connect wallet to trade'}
-                    </p>
-                  )}
-                </div>
-
-                {/* Buy No */}
-                <div className="text-center">
-                  <h3 className="text-lg font-medium mb-3" style={{ color: 'var(--color-danger)' }}>
-                    Buy No Shares
-                  </h3>
-                  <p className="text-sm text-secondary mb-4">
-                    Bet that the outcome will be "No"
-                  </p>
-                  <button
-                    onClick={() => {
-                      setTradeType('no');
-                      setShowTradeForm(true);
-                    }}
-                    disabled={!canTradeNo}
-                    className="btn-primary w-full"
-                    style={{ 
-                      backgroundColor: 'var(--color-danger)',
-                      opacity: canTradeNo ? 1 : 0.5,
-                      cursor: canTradeNo ? 'pointer' : 'not-allowed'
-                    }}
-                  >
-                    Buy No
-                  </button>
-                  {!canTradeNo && (
-                    <p className="text-xs text-secondary mt-2">
-                      {hasParticipated ? 'Already participated' : 'Connect wallet to trade'}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* User Shares */}
-          {isConnected && (market?.userYesShares > 0n || market?.userNoShares > 0n) && (
-            <div className="card mb-6">
-              <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-                Your Shares
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
-                  <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-accent)' }}>
-                    {formatEther(market?.userYesShares || 0n)}
-                  </div>
-                  <div className="text-sm text-secondary">Yes Shares</div>
-                  <div className="text-xs text-secondary mt-1">
-                    Value: ~${(Number(formatEther(market?.userYesShares || 0n)) * 2000).toFixed(2)}
-                  </div>
-                </div>
-                
-                <div className="text-center p-4 rounded-lg" style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
-                  <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-danger)' }}>
-                    {formatEther(market?.userNoShares || 0n)}
-                  </div>
-                  <div className="text-sm text-secondary">No Shares</div>
-                  <div className="text-xs text-secondary mt-1">
-                    Value: ~${(Number(formatEther(market?.userNoShares || 0n)) * 2000).toFixed(2)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Trade Form Modal */}
-          {showTradeForm && tradeType && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="card max-w-md mx-4 w-full">
-                <h3 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-                  Buy {tradeType === 'yes' ? 'Yes' : 'No'} Shares
-                </h3>
-                
-                <div className="mb-4">
-                  <label htmlFor="amount" className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    Amount (CELO)
-                  </label>
-                  <input
-                    type="number"
-                    id="amount"
-                    value={tradeAmount}
-                    onChange={(e) => setTradeAmount(e.target.value)}
-                    placeholder="0.01"
-                    step="0.001"
-                    min="0.001"
-                    className="input-field w-full"
-                  />
-                </div>
-
-                <div className="mb-6 p-3 rounded-lg" style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
-                  <div className="text-sm text-secondary mb-1">Trading Fee:</div>
-                  <div className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {tradingFee ? formatFee(tradingFee) : 'Loading...'} CELO
+                <div className="quick-amounts">
+                  <h3>📊 Quick Amounts</h3>
+                  <div className="amount-buttons">
+                    {quickAmounts.map(amount => (
+                      <button
+                        key={amount}
+                        onClick={() => setTradeAmount(amount.toString())}
+                        className="quick-amount-btn"
+                      >
+                        {amount}
+                      </button>
+                    ))}
+                    {quickPercentages.map(percent => (
+                      <button
+                        key={percent}
+                        onClick={() => setTradeAmount(`${percent}%`)}
+                        className="quick-amount-btn percentage"
+                      >
+                        {percent}%
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowTradeForm(false)}
-                    className="btn-secondary flex-1"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleTrade}
-                    disabled={!tradeAmount || isPending}
-                    className="btn-primary flex-1"
-                    style={{ 
-                      opacity: (!tradeAmount || isPending) ? 0.6 : 1,
-                      cursor: (!tradeAmount || isPending) ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    {isPending ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing...
-                      </>
-                    ) : (
-                      `Buy ${tradeType === 'yes' ? 'Yes' : 'No'}`
-                    )}
-                  </button>
+                <div className="fee-breakdown">
+                  <h3>💸 Fee Breakdown</h3>
+                  <div className="fee-row">
+                    <span>Trading Fee:</span>
+                    <span>0.05 CELO</span>
+                  </div>
+                  <div className="fee-row total">
+                    <span>Total Cost:</span>
+                    <span>{tradeAmount ? (parseFloat(tradeAmount) + 0.05).toFixed(3) : '0.000'} CELO</span>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* Success Message */}
-          {isSuccess && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="card max-w-md mx-4 text-center">
-                <div className="text-6xl mb-4">🎉</div>
-                <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>Trade Successful!</h2>
-                <p className="text-secondary mb-6">
-                  Your shares have been purchased successfully.
-                </p>
                 <button
-                  onClick={() => window.location.reload()}
-                  className="btn-primary w-full"
+                  onClick={handleTrade}
+                  disabled={!tradeType || !tradeAmount || isPending}
+                  className="trade-button"
                 >
-                  Refresh Page
+                  {isPending ? (
+                    <>
+                      <div className="loading-spinner small"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    `🚀 Place ${tradeType === 'yes' ? 'Yes' : 'No'} Trade`
+                  )}
+                </button>
+              </>
+            )}
+
+            {!isConnected && (
+              <div className="connect-notice">
+                <h3>🔗 Connect Wallet</h3>
+                <p>Connect your wallet to start trading shares in this market.</p>
+                <button onClick={() => navigate('/')} className="btn-primary">
+                  Connect Wallet
                 </button>
               </div>
+            )}
+
+            {market.isEnded && (
+              <div className="ended-notice">
+                <h3>⏰ Market Ended</h3>
+                <p>This market has ended and is no longer accepting new trades.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Panel - User Actions & Info */}
+        <div className="right-panel">
+          <div className="user-position-card">
+            <h2>👤 Your Position</h2>
+            
+            <div className="position-details">
+              <div className="position-row">
+                <span>Yes Shares:</span>
+                <span className="shares-count">{formatEther(BigInt(market.userYesShares))}</span>
+              </div>
+              <div className="position-row">
+                <span>No Shares:</span>
+                <span className="shares-count">{formatEther(BigInt(market.userNoShares))}</span>
+              </div>
             </div>
-          )}
-        </>
+
+            <div className="payout-details">
+              <h3>💰 Potential Payout</h3>
+              <div className="payout-row">
+                <span>If Yes wins:</span>
+                <span className="payout-amount">{(calculatePotentialPayout(market.userYesShares, true))} CELO</span>
+              </div>
+              <div className="payout-row">
+                <span>If No wins:</span>
+                <span className="payout-amount">{calculatePotentialPayout(market.userNoShares, false)} CELO</span>
+              </div>
+            </div>
+
+            <div className="participation-status">
+              <h3>📈 Your Participation</h3>
+              <div className="status-row">
+                <span>Status:</span>
+                <span className={`status ${market.hasParticipated ? 'participated' : 'not-participated'}`}>
+                  {market.hasParticipated ? 'Participated' : 'Not Participated'}
+                </span>
+              </div>
+              <div className="status-row">
+                <span>Side:</span>
+                <span className="side">
+                  {market.participationSide === null ? 'None' : 
+                   market.participationSide ? 'Yes' : 'No'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="quick-actions-card">
+            <h2>🎲 Quick Actions</h2>
+            <div className="action-buttons">
+              <button className="action-btn">
+                📊 View Order Book
+              </button>
+              <button className="action-btn">
+                👥 See Participants
+              </button>
+              <button className="action-btn">
+                📱 Share Market
+              </button>
+              <button className="action-btn">
+                🔔 Set Alerts
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Section - Market Activity */}
+      <div className="market-activity">
+        <div className="activity-card">
+          <h2>📊 Market Activity</h2>
+          
+          <div className="activity-grid">
+            <div className="recent-trades">
+              <h3>🕒 Recent Trades</h3>
+              <div className="trades-list">
+                <div className="trade-item">
+                  <span className="trade-user">0x1234...abcd</span>
+                  <span className="trade-action">bought</span>
+                  <span className="trade-amount">5.0 YES shares</span>
+                </div>
+                <div className="trade-item">
+                  <span className="trade-user">0x5678...efgh</span>
+                  <span className="trade-action">bought</span>
+                  <span className="trade-amount">2.5 NO shares</span>
+                </div>
+                <div className="trade-item">
+                  <span className="trade-user">0x9abc...ijkl</span>
+                  <span className="trade-action">bought</span>
+                  <span className="trade-amount">1.0 YES shares</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="top-participants">
+              <h3>👥 Top Participants</h3>
+              <div className="participants-list">
+                <div className="participant-item">
+                  <span className="participant-address">0x1234...abcd</span>
+                  <span className="participant-shares">150.0 YES shares</span>
+                </div>
+                <div className="participant-item">
+                  <span className="participant-address">0x5678...efgh</span>
+                  <span className="participant-shares">75.0 NO shares</span>
+                </div>
+                <div className="participant-item">
+                  <span className="participant-address">0x9abc...ijkl</span>
+                  <span className="participant-shares">50.0 YES shares</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Success Message Modal */}
+      {isSuccess && (
+        <div className="modal-overlay">
+          <div className="success-modal">
+            <div className="success-icon">🎉</div>
+            <h2>Trade Successful!</h2>
+            <p>Your shares have been purchased successfully.</p>
+            <button onClick={() => window.location.reload()} className="btn-primary">
+              Refresh Page
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

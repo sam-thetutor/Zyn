@@ -1,5 +1,6 @@
 import React from 'react';
-import { Market, MarketStatus } from '../../utils/contracts';
+import type { Market } from '../../utils/contracts';
+import { MarketStatus } from '../../utils/contracts';
 import { formatEther } from 'viem';
 
 interface AdminStatsProps {

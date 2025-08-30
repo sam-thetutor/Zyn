@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Market, MarketStatus } from '../../utils/contracts';
+import type { Market } from '../../utils/contracts';
+import { MarketStatus } from '../../utils/contracts';
 import { formatEther } from 'viem';
 
 interface AdminMarketTableProps {
@@ -148,7 +149,13 @@ const AdminMarketTable: React.FC<AdminMarketTableProps> = ({
                 Question
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Description
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Category
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Source
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
@@ -173,8 +180,14 @@ const AdminMarketTable: React.FC<AdminMarketTableProps> = ({
                 <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
                   {market.question}
                 </td>
+                <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                  {market.description}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {market.category}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {market.source}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {getStatusBadge(market.status)}

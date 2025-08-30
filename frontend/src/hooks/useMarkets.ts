@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePredictionMarket } from './usePredictionMarket';
-import { useMarketData } from './useMarketData';
-import type { Market } from '../utils/contracts';
+import type { Market, WinnerInfo } from '../utils/contracts';
 
 export interface MarketWithUserShares extends Market {
   timeRemaining: number;
@@ -9,11 +8,24 @@ export interface MarketWithUserShares extends Market {
   isActive: boolean;
   userYesShares: bigint;
   userNoShares: bigint;
+  userParticipation?: {
+    participated: boolean;
+    side: boolean;
+    yesShares: bigint;
+    noShares: bigint;
+  };
+  winnerInfo?: WinnerInfo;
 }
 
 export const useMarkets = () => {
-  const { totalMarkets, refetchTotalMarkets } = usePredictionMarket();
-  const { getMarket, getUserShares } = useMarketData();
+  const { 
+    totalMarkets, 
+    refetchTotalMarkets,
+    getMarket,
+    getUserShares,
+    getUserParticipation,
+    getWinnerInfo
+  } = usePredictionMarket();
   
   const [markets, setMarkets] = useState<MarketWithUserShares[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,7 +134,6 @@ export const useMarkets = () => {
     if (searchTerm) {
       filtered = filtered.filter(market =>
         market.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        market.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         market.category.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
@@ -137,7 +148,7 @@ export const useMarkets = () => {
     // Apply sub-category filter
     if (selectedSubCategory) {
       filtered = filtered.filter(market =>
-        market.description.toLowerCase().includes(selectedSubCategory.toLowerCase())
+        market.category.toLowerCase().includes(selectedSubCategory.toLowerCase())
       );
     }
 
@@ -206,26 +217,34 @@ export const useMarkets = () => {
       prevMarkets.map(market => ({ ...market }))
     );
 
-    // Update user shares for each market
+    // Update user shares and participation for each market
     for (const market of markets) {
       try {
-        const [yesShares, noShares] = await Promise.all([
+        const [yesShares, noShares, userParticipation, winnerInfo] = await Promise.all([
           getUserShares(market.id, userAddress, true),
-          getUserShares(market.id, userAddress, false)
+          getUserShares(market.id, userAddress, false),
+          getUserParticipation(market.id, userAddress),
+          getWinnerInfo(market.id, userAddress)
         ]);
 
         setMarkets(prevMarkets =>
           prevMarkets.map(m =>
             m.id === market.id
-              ? { ...m, userYesShares: yesShares, userNoShares: noShares }
+              ? { 
+                  ...m, 
+                  userYesShares: yesShares, 
+                  userNoShares: noShares,
+                  userParticipation,
+                  winnerInfo
+                }
               : m
           )
         );
       } catch (err) {
-        console.warn(`Failed to fetch user shares for market ${market.id}:`, err);
+        console.warn(`Failed to fetch user data for market ${market.id}:`, err);
       }
     }
-  }, [markets, getUserShares]);
+  }, [markets, getUserShares, getUserParticipation, getWinnerInfo]);
 
   return {
     // State

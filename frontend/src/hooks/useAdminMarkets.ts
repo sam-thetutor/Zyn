@@ -1,56 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useReadContract, usePublicClient } from 'wagmi';
-import { CONTRACTS } from '../utils/contracts';
-import { Market, MarketStatus } from '../utils/contracts';
+import { usePredictionMarket } from './usePredictionMarket';
+import type { Market } from '../utils/contracts';
+import { MarketStatus } from '../utils/contracts';
 
 export const useAdminMarkets = () => {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   
-  const publicClient = usePublicClient();
-
-  // Get total number of markets
-  const { data: totalMarkets } = useReadContract({
-    address: CONTRACTS.PREDICTION_MARKET.address,
-    abi: CONTRACTS.PREDICTION_MARKET.abi,
-    functionName: 'getTotalMarkets',
-  });
+  const { totalMarkets, getMarket } = usePredictionMarket();
 
   const fetchMarket = useCallback(async (marketId: bigint): Promise<Market | null> => {
     try {
-      const marketData = await publicClient.readContract({
-        address: CONTRACTS.PREDICTION_MARKET.address,
-        abi: CONTRACTS.PREDICTION_MARKET.abi,
-        functionName: 'getMarket',
-        args: [marketId],
-      });
-
-      if (!marketData) return null;
-
-      const [
-        id, question, description, category, image, endTime,
-        status, outcome, totalYes, totalNo, totalPool
-      ] = marketData;
-
-      return {
-        id,
-        question,
-        description,
-        category,
-        image,
-        endTime,
-        status: status as MarketStatus,
-        outcome,
-        totalYes,
-        totalNo,
-        totalPool,
-      };
+      const market = await getMarket(marketId);
+      return market;
     } catch (error) {
       console.error(`Error fetching market ${marketId}:`, error);
       return null;
     }
-  }, [publicClient]);
+  }, [getMarket]);
 
   const fetchAllMarkets = useCallback(async () => {
     if (!totalMarkets) return;

@@ -5,22 +5,44 @@ import { CONTRACTS } from '../utils/constants';
 export const useContractAddress = () => {
   const { chainId } = useAccount();
   
-  const getContractAddress = () => {
+  const getCoreContractAddress = () => {
     if (chainId === celoAlfajores.id) {
-      return CONTRACTS.PREDICTION_MARKET.CELO_ALFAJORES.address;
+      return CONTRACTS.PREDICTION_MARKET_CORE.CELO_ALFAJORES.address;
     } else if (chainId === base.id) {
-      return CONTRACTS.PREDICTION_MARKET.BASE_MAINNET.address;
+      return CONTRACTS.PREDICTION_MARKET_CORE.BASE_MAINNET.address;
     }
-    return null;
+    // Default to Celo Alfajores for reading markets without wallet connection
+    return CONTRACTS.PREDICTION_MARKET_CORE.CELO_ALFAJORES.address;
   };
 
-  const getContractABI = () => {
+  const getCoreContractABI = () => {
     if (chainId === celoAlfajores.id) {
-      return CONTRACTS.PREDICTION_MARKET.CELO_ALFAJORES.abi;
+      return CONTRACTS.PREDICTION_MARKET_CORE.CELO_ALFAJORES.abi;
     } else if (chainId === base.id) {
-      return CONTRACTS.PREDICTION_MARKET.BASE_MAINNET.abi;
+      return CONTRACTS.PREDICTION_MARKET_CORE.BASE_MAINNET.abi;
     }
-    return null;
+    // Default to Celo Alfajores ABI for reading markets without wallet connection
+    return CONTRACTS.PREDICTION_MARKET_CORE.CELO_ALFAJORES.abi;
+  };
+
+  const getClaimsContractAddress = () => {
+    if (chainId === celoAlfajores.id) {
+      return CONTRACTS.PREDICTION_MARKET_CLAIMS.CELO_ALFAJORES.address;
+    } else if (chainId === base.id) {
+      return CONTRACTS.PREDICTION_MARKET_CLAIMS.BASE_MAINNET.address;
+    }
+    // Default to Celo Alfajores for reading claims without wallet connection
+    return CONTRACTS.PREDICTION_MARKET_CLAIMS.CELO_ALFAJORES.address;
+  };
+
+  const getClaimsContractABI = () => {
+    if (chainId === celoAlfajores.id) {
+      return CONTRACTS.PREDICTION_MARKET_CLAIMS.CELO_ALFAJORES.abi;
+    } else if (chainId === base.id) {
+      return CONTRACTS.PREDICTION_MARKET_CLAIMS.BASE_MAINNET.abi;
+    }
+    // Default to Celo Alfajores ABI for reading claims without wallet connection
+    return CONTRACTS.PREDICTION_MARKET_CLAIMS.CELO_ALFAJORES.abi;
   };
 
   const getCurrentNetwork = () => {
@@ -29,13 +51,24 @@ export const useContractAddress = () => {
     } else if (chainId === base.id) {
       return 'BASE_MAINNET';
     }
-    return null;
+    // Default to Celo Alfajores for reading without wallet connection
+    return 'CELO_ALFAJORES';
   };
 
   return {
-    contractAddress: getContractAddress(),
-    contractABI: getContractABI(),
+    // Core contract
+    coreContractAddress: getCoreContractAddress(),
+    coreContractABI: getCoreContractABI(),
+    
+    // Claims contract
+    claimsContractAddress: getClaimsContractAddress(),
+    claimsContractABI: getClaimsContractABI(),
+    
+    // Legacy support (for backward compatibility)
+    contractAddress: getCoreContractAddress(),
+    contractABI: getCoreContractABI(),
+    
     currentNetwork: getCurrentNetwork(),
-    isSupportedNetwork: chainId === celoAlfajores.id || chainId === base.id,
+    isSupportedNetwork: chainId === celoAlfajores.id || chainId === base.id || !chainId, // Allow reading without wallet
   };
 };

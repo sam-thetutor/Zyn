@@ -47,7 +47,7 @@ const MarketStats: React.FC<MarketStatsProps> = ({ stats }) => {
     },
     {
       label: 'Total Volume',
-              value: `${formattedVolume} CELO`,
+      value: `${formattedVolume} CELO`,
       color: 'var(--color-warning)',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,36 +61,53 @@ const MarketStats: React.FC<MarketStatsProps> = ({ stats }) => {
     <div className="card mb-6 mt-6 slide-up">
       <h2 className="card-title">Market Overview</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Main Stats Grid - Responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {statItems.map((item, index) => (
-          <div key={index} className="p-4 rounded-lg transition-all duration-300 hover:transform hover:scale-105" style={{ backgroundColor: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border-light)' }}>
+          <div 
+            key={index} 
+            className="p-3 md:p-4 rounded-lg transition-all duration-300 hover:transform hover:scale-105" 
+            style={{ 
+              backgroundColor: 'var(--color-bg-tertiary)', 
+              border: '1px solid var(--color-border-light)',
+              minHeight: '80px'
+            }}
+          >
             <div className="flex items-center">
-              <div className="p-2 rounded-lg mr-3 text-white" style={{ backgroundColor: item.color }}>
+              <div 
+                className="p-2 rounded-lg mr-3 text-white flex-shrink-0" 
+                style={{ backgroundColor: item.color }}
+              >
                 {item.icon}
               </div>
-              <div>
-                <div className="text-sm font-medium text-secondary">{item.label}</div>
-                <div className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>{item.value}</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs md:text-sm font-medium text-secondary truncate">{item.label}</div>
+                <div className="text-sm md:text-lg font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+                  {item.value}
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
       
-      {/* Additional stats */}
-      <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--color-border-light)' }}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-4 rounded-lg transition-all duration-300 hover:transform hover:scale-105" style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
-            <div className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>{stats.total}</div>
-            <div className="text-sm text-secondary">Total Markets Created</div>
+      {/* Additional Stats - Mobile Optimized */}
+      <div className="mt-4 md:mt-6 pt-4 md:pt-6" style={{ borderTop: '1px solid var(--color-border-light)' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+          <div className="text-center p-3 md:p-4 rounded-lg transition-all duration-300 hover:transform hover:scale-105" 
+               style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
+            <div className="text-lg md:text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>{stats.total}</div>
+            <div className="text-xs md:text-sm text-secondary">Total Markets Created</div>
           </div>
-          <div className="text-center p-4 rounded-lg transition-all duration-300 hover:transform hover:scale-105" style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
-            <div className="text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>{stats.active}</div>
-            <div className="text-sm text-secondary">Currently Active</div>
+          <div className="text-center p-3 md:p-4 rounded-lg transition-all duration-300 hover:transform hover:scale-105" 
+               style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
+            <div className="text-lg md:text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>{stats.active}</div>
+            <div className="text-xs md:text-sm text-secondary">Currently Active</div>
           </div>
-          <div className="text-center p-4 rounded-lg transition-all duration-300 hover:transform hover:scale-105" style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
-            <div className="text-2xl font-bold" style={{ color: 'var(--color-secondary)' }}>{stats.resolved}</div>
-            <div className="text-sm text-secondary">Successfully Resolved</div>
+          <div className="text-center p-3 md:p-4 rounded-lg transition-all duration-300 hover:transform hover:scale-105" 
+               style={{ backgroundColor: 'var(--color-bg-accent)', border: '1px solid var(--color-border-accent)' }}>
+            <div className="text-lg md:text-2xl font-bold" style={{ color: 'var(--color-secondary)' }}>{stats.resolved}</div>
+            <div className="text-xs md:text-sm text-secondary">Successfully Resolved</div>
           </div>
         </div>
       </div>

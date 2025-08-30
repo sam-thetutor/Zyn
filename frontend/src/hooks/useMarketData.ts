@@ -1,13 +1,15 @@
 import { useCallback } from 'react';
 import { useReadContract, usePublicClient } from 'wagmi';
-import { CONTRACTS } from '../utils/constants';
-import type { Market } from '../utils/contracts';
+import { useContractAddress } from './useContractAddress';
+import type { Market, UserParticipation, WinnerInfo } from '../utils/contracts';
 
 // Hook to get a specific market by ID
 export const useMarket = (marketId: bigint | undefined) => {
+  const { coreContractAddress, coreContractABI } = useContractAddress();
+  
   const { data: marketData, error, isLoading, refetch } = useReadContract({
-    address: CONTRACTS.PREDICTION_MARKET.address,
-    abi: CONTRACTS.PREDICTION_MARKET.abi,
+    address: coreContractAddress || '0x0000000000000000000000000000000000000000',
+    abi: coreContractABI || [],
     functionName: 'getMarket',
     args: marketId ? [marketId] : undefined,
   });
@@ -16,20 +18,22 @@ export const useMarket = (marketId: bigint | undefined) => {
     if (!marketData) return null;
     
     try {
-      // Transform the tuple to Market interface
-      const [id, question, description, category, image, endTime, status, outcome, totalYes, totalNo, totalPool] = marketData as any;
+      // Transform the struct to Market interface
+      const m = marketData as any;
       return {
-        id,
-        question,
-        description,
-        category,
-        image,
-        endTime,
-        status,
-        outcome,
-        totalYes,
-        totalNo,
-        totalPool,
+        id: m.id,
+        question: m.question,
+        description: m.description,
+        category: m.category,
+        image: m.image,
+        source: m.source,
+        endTime: m.endTime,
+        totalPool: m.totalPool,
+        totalYes: m.totalYes,
+        totalNo: m.totalNo,
+        status: m.status,
+        outcome: m.outcome,
+        createdAt: m.createdAt,
       };
     } catch (error) {
       console.error('Error transforming market data:', error);
@@ -51,15 +55,25 @@ export const useUserShares = (
   userAddress: `0x${string}` | undefined, 
   outcome: boolean | undefined
 ) => {
-  const { data: shares, error, isLoading, refetch } = useReadContract({
-    address: CONTRACTS.PREDICTION_MARKET.address,
-    abi: CONTRACTS.PREDICTION_MARKET.abi,
-    functionName: 'getUserShares',
-    args: marketId && userAddress && outcome !== undefined ? [marketId, userAddress, outcome] : undefined,
+  const { coreContractAddress, coreContractABI } = useContractAddress();
+  
+  const { data, error, isLoading, refetch } = useReadContract({
+    address: coreContractAddress || '0x0000000000000000000000000000000000000000',
+    abi: coreContractABI || [],
+    functionName: 'getUserParticipation',
+    args: marketId && userAddress && outcome !== undefined ? [marketId, userAddress] : undefined,
   });
 
+  let shares: bigint = 0n;
+  try {
+    if (data) {
+      const [, , yes, no] = data as unknown as [boolean, boolean, bigint, bigint];
+      shares = outcome ? (yes || 0n) : (no || 0n);
+    }
+  } catch {}
+
   return {
-    shares: shares || 0n,
+    shares,
     error,
     isLoading,
     refetch,
@@ -68,7 +82,7 @@ export const useUserShares = (
 
 // Legacy hook for backward compatibility
 export const useMarketData = () => {
-  const contractAddress = CONTRACTS.PREDICTION_MARKET.address;
+  const { coreContractAddress, coreContractABI } = useContractAddress();
   const publicClient = usePublicClient();
 
   // Get market by ID - now uses real contract call with public client
@@ -79,9 +93,14 @@ export const useMarketData = () => {
         return null;
       }
 
+      if (!coreContractAddress || !coreContractABI) {
+        console.error('Core contract not found on current network');
+        return null;
+      }
+
       const result = await publicClient.readContract({
-        address: contractAddress,
-        abi: CONTRACTS.PREDICTION_MARKET.abi,
+        address: coreContractAddress,
+        abi: coreContractABI,
         functionName: 'getMarket',
         args: [marketId],
       });
@@ -89,26 +108,28 @@ export const useMarketData = () => {
       console.log('result', result);
       if (!result) return null;
       
-      // Transform the tuple to Market interface
-      const [id, question, description, category, image, endTime, status, outcome, totalYes, totalNo, totalPool] = result as any;
+      // Transform the struct to Market interface
+      const m = result as any;
       return {
-        id,
-        question,
-        description,
-        category,
-        image,
-        endTime,
-        status,
-        outcome,
-        totalYes,
-        totalNo,
-        totalPool,
+        id: m.id,
+        question: m.question,
+        description: m.description,
+        category: m.category,
+        image: m.image,
+        source: m.source,
+        endTime: m.endTime,
+        totalPool: m.totalPool,
+        totalYes: m.totalYes,
+        totalNo: m.totalNo,
+        status: m.status,
+        outcome: m.outcome,
+        createdAt: m.createdAt,
       };
     } catch (error) {
       console.error('Error fetching market:', error);
       return null;
     }
-  }, [contractAddress, publicClient]);
+  }, [coreContractAddress, coreContractABI, publicClient]);
 
   // Get user shares for a market - now uses real contract call with public client
   const getUserShares = useCallback(async (
@@ -122,19 +143,25 @@ export const useMarketData = () => {
         return 0n;
       }
 
-      const result = await publicClient.readContract({
-        address: contractAddress,
-        abi: CONTRACTS.PREDICTION_MARKET.abi,
-        functionName: 'getUserShares',
-        args: [marketId, userAddress, outcome],
+      if (!coreContractAddress || !coreContractABI) {
+        console.error('Core contract not found on current network');
+        return 0n;
+      }
+
+      const data = await publicClient.readContract({
+        address: coreContractAddress,
+        abi: coreContractABI,
+        functionName: 'getUserParticipation',
+        args: [marketId, userAddress],
       });
       
-      return (result as bigint) || 0n;
+      const [, , yes, no] = data as unknown as [boolean, boolean, bigint, bigint];
+      return outcome ? (yes || 0n) : (no || 0n);
     } catch (error) {
       console.error('Error fetching user shares:', error);
       return 0n;
     }
-  }, [contractAddress, publicClient]);
+  }, [coreContractAddress, coreContractABI, publicClient]);
 
   return {
     getMarket,

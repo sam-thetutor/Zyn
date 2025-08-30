@@ -11,6 +11,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract PredictionMarket is ReentrancyGuard, Ownable {
     uint256 private _marketIds = 0;
     
+    // Public getter for market count
+    function getMarketCount() public view returns (uint256) {
+        return _marketIds;
+    }
+    
     // Admin address - can resolve markets
     address public admin = 0x21D654daaB0fe1be0e584980ca7C1a382850939f;
     
@@ -29,6 +34,8 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
         uint256 totalYes;
         uint256 totalNo;
         uint256 totalPool;
+        uint256 winnerCount;
+        uint256 totalWinningShares;
         mapping(address => uint256) yesShares;
         mapping(address => uint256) noShares;
         mapping(address => bool) hasParticipated;
@@ -38,6 +45,23 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
     }
     
     mapping(uint256 => Market) public markets;
+    
+    // Winner tracking per market
+    mapping(uint256 => address[]) public marketWinners;
+    mapping(uint256 => uint256) public winnerCount;
+    mapping(uint256 => uint256) public totalWinningShares; // Total shares of winning outcome
+    
+    // Participant tracking
+    mapping(uint256 => address[]) public marketParticipants;
+    mapping(uint256 => mapping(address => bool)) public isParticipant;
+    
+    // Contract fee tracking
+    uint256 public contractFees;
+    
+    // Username management
+    mapping(address => string) public usernames;
+    mapping(string => bool) public usernameTaken;
+    uint256 public usernameChangeFee = 0.00001 ether;
     
     uint256 public marketCreationFee = 0.00005 ether;
     uint256 public tradingFee = 0.00001 ether;
@@ -59,7 +83,9 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
     event MarketResolved(
         uint256 indexed marketId, 
         address indexed resolver, 
-        bool outcome
+        bool outcome,
+        address[] winners,
+        uint256 totalWinnerAmount
     );
     event WinningsClaimed(
         uint256 indexed marketId, 
@@ -68,6 +94,9 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
     );
     event FeesUpdated(uint256 newCreationFee, uint256 newTradingFee);
     event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
+    event UsernameSet(address indexed user, string username);
+    event UsernameChanged(address indexed user, string oldUsername, string newUsername);
+    event UsernameChangeFeeUpdated(uint256 newFee);
     
     // Modifiers
     modifier onlyAdmin() {
@@ -76,6 +105,85 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
     }
     
     constructor() Ownable(msg.sender) {}
+    
+    /**
+     * @dev Set username for the first time (free)
+     */
+    function setUsername(string memory username) external {
+        require(bytes(username).length >= 3 && bytes(username).length <= 20, "Username must be 3-20 characters");
+        require(bytes(username).length > 0, "Username cannot be empty");
+        require(!usernameTaken[username], "Username already taken");
+        require(bytes(usernames[msg.sender]).length == 0, "Username already set");
+        
+        // Validate username format (alphanumeric and underscores only)
+        for (uint256 i = 0; i < bytes(username).length; i++) {
+            bytes1 char = bytes(username)[i];
+            require(
+                (char >= 0x30 && char <= 0x39) || // 0-9
+                (char >= 0x41 && char <= 0x5A) || // A-Z
+                (char >= 0x61 && char <= 0x7A) || // a-z
+                char == 0x5F, // underscore
+                "Username can only contain alphanumeric characters and underscores"
+            );
+        }
+        
+        usernames[msg.sender] = username;
+        usernameTaken[username] = true;
+        
+        emit UsernameSet(msg.sender, username);
+    }
+    
+    /**
+     * @dev Change username (requires fee payment)
+     */
+    function changeUsername(string memory newUsername) external payable {
+        require(msg.value >= usernameChangeFee, "Insufficient fee for username change");
+        require(bytes(newUsername).length >= 3 && bytes(newUsername).length <= 20, "Username must be 3-20 characters");
+        require(bytes(newUsername).length > 0, "Username cannot be empty");
+        require(!usernameTaken[newUsername], "Username already taken");
+        require(bytes(usernames[msg.sender]).length > 0, "No username to change");
+        
+        // Validate username format (alphanumeric and underscores only)
+        for (uint256 i = 0; i < bytes(newUsername).length; i++) {
+            bytes1 char = bytes(newUsername)[i];
+            require(
+                (char >= 0x30 && char <= 0x39) || // 0-9
+                (char >= 0x41 && char <= 0x5A) || // A-Z
+                (char >= 0x61 && char <= 0x7A) || // a-z
+                char == 0x5F, // underscore
+                "Username can only contain alphanumeric characters and underscores"
+            );
+        }
+        
+        string memory oldUsername = usernames[msg.sender];
+        usernameTaken[oldUsername] = false;
+        usernames[msg.sender] = newUsername;
+        usernameTaken[newUsername] = true;
+        
+        emit UsernameChanged(msg.sender, oldUsername, newUsername);
+    }
+    
+    /**
+     * @dev Get username for an address
+     */
+    function getUsername(address user) external view returns (string memory) {
+        return usernames[user];
+    }
+    
+    /**
+     * @dev Check if username is available
+     */
+    function isUsernameAvailable(string memory username) external view returns (bool) {
+        return !usernameTaken[username];
+    }
+    
+    /**
+     * @dev Update username change fee (admin only)
+     */
+    function updateUsernameChangeFee(uint256 newFee) external onlyOwner {
+        usernameChangeFee = newFee;
+        emit UsernameChangeFeeUpdated(newFee);
+    }
     
     /**
      * @dev Create a new prediction market
@@ -127,6 +235,12 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
         market.hasParticipated[msg.sender] = true;
         market.participationSide[msg.sender] = outcome;
         
+        // Add user to participants list
+        if (!isParticipant[marketId][msg.sender]) {
+            marketParticipants[marketId].push(msg.sender);
+            isParticipant[marketId][msg.sender] = true;
+        }
+        
         if (outcome) {
             market.yesShares[msg.sender] += msg.value;
             market.totalYes += msg.value;
@@ -152,24 +266,67 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
         market.status = MarketStatus.RESOLVED;
         market.outcome = outcome;
         
-        // Calculate claimable amounts for all participants
-        _calculateClaimableAmounts(marketId, outcome);
+        // Calculate winners and total winning shares
+        (address[] memory winners, uint256 totalWinningShares) = getWinnersAndTotalShares(marketId, outcome);
+        uint256 winnerCount = winners.length;
         
-        emit MarketResolved(marketId, msg.sender, outcome);
+        if (winnerCount > 0) {
+            // Store winners for this market
+            marketWinners[marketId] = winners;
+            market.winnerCount = winnerCount;
+            market.totalWinningShares = totalWinningShares;
+            
+            // Calculate distribution
+            uint256 totalPool = market.totalPool;
+            uint256 adminAmount = (totalPool * 15) / 100;            // 15% to admin (stays in contract)
+            uint256 contractAmount = (totalPool * 15) / 100;         // 15% to contract fees
+            
+            // Add fees to contract (admin can withdraw later)
+            contractFees += adminAmount + contractAmount;
+            
+            emit MarketResolved(marketId, msg.sender, outcome, winners, totalWinningShares);
+        }
     }
     
     /**
-     * @dev Calculate claimable amounts for all participants
+     * @dev Calculate winners and total winning shares for a market
      */
-    function _calculateClaimableAmounts(uint256 marketId, bool /* outcome */) private view {
-        // For each participant, calculate their potential winnings
-        // This is a simplified calculation - in a real implementation,
-        // you might want to iterate through participants more efficiently
+    function getWinnersAndTotalShares(uint256 marketId, bool outcome) private view returns (address[] memory winners, uint256 totalShares) {
+        Market storage market = markets[marketId];
+        address[] memory participants = marketParticipants[marketId];
+        address[] memory tempWinners = new address[](participants.length);
+        uint256 winnerCount = 0;
+        uint256 totalWinningShares = 0;
         
-        // Note: This is a placeholder for the calculation logic
-        // In practice, you'd need to track participants and calculate individually
-        // For now, users will calculate their claimable amount when they call claimWinnings
+        for (uint256 i = 0; i < participants.length; i++) {
+            address participant = participants[i];
+            uint256 userShares = 0;
+            
+            if (outcome) {
+                // Outcome is YES - Yes shares win
+                userShares = market.yesShares[participant];
+            } else {
+                // Outcome is NO - No shares win
+                userShares = market.noShares[participant];
+            }
+            
+            if (userShares > 0) {
+                tempWinners[winnerCount] = participant;
+                winnerCount++;
+                totalWinningShares += userShares;
+            }
+        }
+        
+        // Create final winners array
+        winners = new address[](winnerCount);
+        for (uint256 i = 0; i < winnerCount; i++) {
+            winners[i] = tempWinners[i];
+        }
+        
+        return (winners, totalWinningShares);
     }
+    
+
     
     /**
      * @dev Claim winnings after market resolution
@@ -180,20 +337,67 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
         require(market.status == MarketStatus.RESOLVED, "Market not yet resolved");
         require(!market.hasClaimed[msg.sender], "Already claimed winnings");
         
-        uint256 claimableAmount = _calculateUserClaimableAmount(marketId, msg.sender);
+        // Check if user is a winner
+        require(isWinner(marketId, msg.sender), "Not a winner in this market");
+        
+        uint256 claimableAmount = calculateUserWinnings(marketId, msg.sender);
         require(claimableAmount > 0, "No winnings to claim");
         
         // Mark as claimed
         market.hasClaimed[msg.sender] = true;
         
-        // Transfer winnings
+        // Transfer proportional winnings
         payable(msg.sender).transfer(claimableAmount);
         
         emit WinningsClaimed(marketId, msg.sender, claimableAmount);
     }
     
     /**
-     * @dev Calculate how much a user can claim for a specific market
+     * @dev Check if user is a winner in a specific market
+     */
+    function isWinner(uint256 marketId, address user) public view returns (bool) {
+        address[] memory winners = marketWinners[marketId];
+        for (uint256 i = 0; i < winners.length; i++) {
+            if (winners[i] == user) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * @dev Calculate proportional winnings for a user
+     */
+    function calculateUserWinnings(uint256 marketId, address user) public view returns (uint256) {
+        Market storage market = markets[marketId];
+        require(market.status == MarketStatus.RESOLVED, "Market not yet resolved");
+        
+        uint256 userShares = 0;
+        if (market.outcome) {
+            // Outcome is YES - Yes shares win
+            userShares = market.yesShares[user];
+        } else {
+            // Outcome is NO - No shares win
+            userShares = market.noShares[user];
+        }
+        
+        if (userShares == 0) return 0;
+        
+        uint256 totalPool = market.totalPool;
+        uint256 totalWinnerAmount = (totalPool * 70) / 100;  // 70% to winners
+        uint256 totalWinningShares = market.totalWinningShares;
+        
+        // Calculate user's share percentage
+        uint256 userSharePercentage = (userShares * 1e18) / totalWinningShares;
+        
+        // Calculate user's winnings
+        uint256 userWinnings = (totalWinnerAmount * userSharePercentage) / 1e18;
+        
+        return userWinnings;
+    }
+    
+    /**
+     * @dev Calculate how much a user can claim for a specific market (legacy function)
      */
     function _calculateUserClaimableAmount(uint256 marketId, address user) private view returns (uint256) {
         Market storage market = markets[marketId];
@@ -247,6 +451,60 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
         require(market.id != 0, "Market does not exist");
         
         return outcome ? market.yesShares[user] : market.noShares[user];
+    }
+    
+    /**
+     * @dev Get winners for a specific market
+     */
+    function getMarketWinners(uint256 marketId) external view returns (address[] memory) {
+        require(markets[marketId].id != 0, "Market does not exist");
+        return marketWinners[marketId];
+    }
+    
+    /**
+     * @dev Get total winning shares for a market
+     */
+    function getTotalWinningShares(uint256 marketId) external view returns (uint256) {
+        require(markets[marketId].id != 0, "Market does not exist");
+        return markets[marketId].totalWinningShares;
+    }
+    
+
+    
+    /**
+     * @dev Get all participants for a market with their details
+     */
+    function getAllParticipants(uint256 marketId) external view returns (
+        address[] memory addresses,
+        string[] memory userUsernames,
+        uint256[] memory yesShares,
+        uint256[] memory noShares,
+        uint256[] memory totalInvestments,
+        bool[] memory participationSides
+    ) {
+        require(markets[marketId].id != 0, "Market does not exist");
+        
+        address[] memory participants = marketParticipants[marketId];
+        uint256 participantCount = participants.length;
+        
+        addresses = new address[](participantCount);
+        userUsernames = new string[](participantCount);
+        yesShares = new uint256[](participantCount);
+        noShares = new uint256[](participantCount);
+        totalInvestments = new uint256[](participantCount);
+        participationSides = new bool[](participantCount);
+        
+        for (uint256 i = 0; i < participantCount; i++) {
+            address participant = participants[i];
+            addresses[i] = participant;
+            userUsernames[i] = usernames[participant];
+            yesShares[i] = markets[marketId].yesShares[participant];
+            noShares[i] = markets[marketId].noShares[participant];
+            totalInvestments[i] = yesShares[i] + noShares[i];
+            participationSides[i] = markets[marketId].participationSide[participant];
+        }
+        
+        return (addresses, userUsernames, yesShares, noShares, totalInvestments, participationSides);
     }
     
     /**
@@ -361,10 +619,18 @@ contract PredictionMarket is ReentrancyGuard, Ownable {
      * @dev Withdraw accumulated fees (only owner)
      */
     function withdrawFees() external onlyOwner {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "No fees to withdraw");
+        uint256 amount = contractFees;
+        require(amount > 0, "No fees to withdraw");
         
-        payable(owner()).transfer(balance);
+        contractFees = 0;
+        payable(owner()).transfer(amount);
+    }
+    
+    /**
+     * @dev Get contract fee balance
+     */
+    function getContractFees() external view returns (uint256) {
+        return contractFees;
     }
     
     /**

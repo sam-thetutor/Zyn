@@ -1,5 +1,5 @@
-// PredictionMarket Contract ABI
-export const PREDICTION_MARKET_ABI = [
+// PredictionMarketCore Contract ABI
+export const PREDICTION_MARKET_CORE_ABI = [
   {
     "inputs": [],
     "stateMutability": "nonpayable",
@@ -37,44 +37,6 @@ export const PREDICTION_MARKET_ABI = [
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "oldAdmin",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newAdmin",
-        "type": "address"
-      }
-    ],
-    "name": "AdminChanged",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newCreationFee",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newTradingFee",
-        "type": "uint256"
-      }
-    ],
-    "name": "FeesUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
         "internalType": "uint256",
         "name": "marketId",
         "type": "uint256"
@@ -94,13 +56,25 @@ export const PREDICTION_MARKET_ABI = [
       {
         "indexed": false,
         "internalType": "string",
-        "name": "category",
+        "name": "description",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "source",
         "type": "string"
       },
       {
         "indexed": false,
         "internalType": "uint256",
         "name": "endTime",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "creationFee",
         "type": "uint256"
       }
     ],
@@ -130,25 +104,6 @@ export const PREDICTION_MARKET_ABI = [
       }
     ],
     "name": "MarketResolved",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "previousOwner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
-    ],
-    "name": "OwnershipTransferred",
     "type": "event"
   },
   {
@@ -187,6 +142,50 @@ export const PREDICTION_MARKET_ABI = [
     "inputs": [
       {
         "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
+      }
+    ],
+    "name": "UsernameSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "oldUsername",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "newUsername",
+        "type": "string"
+      }
+    ],
+    "name": "UsernameChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "marketId",
         "type": "uint256"
@@ -204,7 +203,45 @@ export const PREDICTION_MARKET_ABI = [
         "type": "uint256"
       }
     ],
-    "name": "WinningsClaimed",
+    "name": "RewardsDisbursed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldContract",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newContract",
+        "type": "address"
+      }
+    ],
+    "name": "ClaimsContractSet",
     "type": "event"
   },
   {
@@ -241,27 +278,14 @@ export const PREDICTION_MARKET_ABI = [
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "newAdmin",
-        "type": "address"
+        "internalType": "string",
+        "name": "newUsername",
+        "type": "string"
       }
     ],
-    "name": "changeAdmin",
+    "name": "changeUsername",
     "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "marketId",
-        "type": "uint256"
-      }
-    ],
-    "name": "claimWinnings",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -284,6 +308,11 @@ export const PREDICTION_MARKET_ABI = [
       {
         "internalType": "string",
         "name": "image",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "source",
         "type": "string"
       },
       {
@@ -304,13 +333,6 @@ export const PREDICTION_MARKET_ABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "emergencyPause",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -319,11 +341,23 @@ export const PREDICTION_MARKET_ABI = [
       },
       {
         "internalType": "address",
-        "name": "user",
+        "name": "claimant",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       }
     ],
-    "name": "getClaimableAmount",
+    "name": "disburseRewards",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getMarketCount",
     "outputs": [
       {
         "internalType": "uint256",
@@ -336,20 +370,15 @@ export const PREDICTION_MARKET_ABI = [
   },
   {
     "inputs": [],
-    "name": "getFeeInfo",
+    "name": "getMarketCreationFee",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "creationFee",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tradingFees",
+        "name": "",
         "type": "uint256"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -363,72 +392,24 @@ export const PREDICTION_MARKET_ABI = [
     "name": "getMarket",
     "outputs": [
       {
-        "internalType": "uint256",
-        "name": "id",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "question",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "description",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "category",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "image",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "endTime",
-        "type": "uint256"
-      },
-      {
-        "internalType": "enum PredictionMarket.MarketStatus",
-        "name": "status",
-        "type": "uint8"
-      },
-      {
-        "internalType": "bool",
-        "name": "outcome",
-        "type": "bool"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalYes",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalNo",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalPool",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getTotalMarkets",
-    "outputs": [
-      {
-        "internalType": "uint256",
+        "components": [
+          { "internalType": "uint256", "name": "id", "type": "uint256" },
+          { "internalType": "string",  "name": "question", "type": "string" },
+          { "internalType": "string",  "name": "description", "type": "string" },
+          { "internalType": "string",  "name": "category", "type": "string" },
+          { "internalType": "string",  "name": "image", "type": "string" },
+          { "internalType": "string",  "name": "source", "type": "string" },
+          { "internalType": "uint256", "name": "endTime", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalPool", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalYes", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalNo", "type": "uint256" },
+          { "internalType": "uint8",   "name": "status", "type": "uint8" },
+          { "internalType": "bool",    "name": "outcome", "type": "bool" },
+          { "internalType": "uint256", "name": "createdAt", "type": "uint256" }
+        ],
+        "internalType": "struct PredictionMarketCore.Market",
         "name": "",
-        "type": "uint256"
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
@@ -447,12 +428,27 @@ export const PREDICTION_MARKET_ABI = [
         "type": "address"
       }
     ],
-    "name": "getUserParticipationSide",
+    "name": "getUserParticipation",
     "outputs": [
       {
         "internalType": "bool",
         "name": "",
         "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -490,22 +486,17 @@ export const PREDICTION_MARKET_ABI = [
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "marketId",
-        "type": "uint256"
-      },
-      {
         "internalType": "address",
         "name": "user",
         "type": "address"
       }
     ],
-    "name": "hasUserClaimed",
+    "name": "getUsername",
     "outputs": [
       {
-        "internalType": "bool",
+        "internalType": "string",
         "name": "",
-        "type": "bool"
+        "type": "string"
       }
     ],
     "stateMutability": "view",
@@ -514,35 +505,17 @@ export const PREDICTION_MARKET_ABI = [
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "marketId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
       }
     ],
-    "name": "hasUserParticipated",
+    "name": "isUsernameAvailable",
     "outputs": [
       {
         "internalType": "bool",
         "name": "",
         "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "marketCreationFee",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -589,7 +562,7 @@ export const PREDICTION_MARKET_ABI = [
         "type": "uint256"
       },
       {
-        "internalType": "enum PredictionMarket.MarketStatus",
+        "internalType": "uint8",
         "name": "status",
         "type": "uint8"
       },
@@ -631,13 +604,6 @@ export const PREDICTION_MARKET_ABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "renounceOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -658,49 +624,19 @@ export const PREDICTION_MARKET_ABI = [
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "newCreationFee",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "newTradingFee",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "username",
+        "type": "string"
       }
     ],
-    "name": "setFees",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "newFee",
-        "type": "uint256"
-      }
-    ],
-    "name": "setMarketCreationFee",
-    "outputs": [],
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "newFee",
-        "type": "uint256"
-      }
-    ],
-    "name": "setTradingFee",
+    "name": "setUsername",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "tradingFee",
+    "name": "usernameChangeFee",
     "outputs": [
       {
         "internalType": "uint256",
@@ -715,44 +651,254 @@ export const PREDICTION_MARKET_ABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "newOwner",
+        "name": "",
         "type": "address"
       }
     ],
-    "name": "transferOwnership",
+    "name": "usernames",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "name": "usernameTaken",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "marketCreationFee",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+// PredictionMarketClaims Contract ABI
+export const PREDICTION_MARKET_CLAIMS_ABI = [
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_coreContract",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "WinningsClaimed",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculateWinners",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "withdrawFees",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "calculateUserWinnings",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimWinnings",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "isWinner",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "hasClaimed",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      }
+    ],
+    "name": "totalWinningShares",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "coreContract",
+    "outputs": [
+      {
+        "internalType": "contract PredictionMarketCore",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
-] as const;
+];
 
-// TypeScript interfaces for the contract
+// TypeScript interfaces for the contracts
 export interface Market {
   id: bigint;
   question: string;
   description: string;
   category: string;
   image: string;
+  source: string;
   endTime: bigint;
-  status: MarketStatus;
-  outcome: boolean;
+  totalPool: bigint;
   totalYes: bigint;
   totalNo: bigint;
-  totalPool: bigint;
+  status: MarketStatus;
+  outcome: boolean;
+  createdAt: bigint;
 }
 
-export enum MarketStatus {
-  ACTIVE = 0,
-  RESOLVED = 1,
-  CANCELLED = 2,
-}
+export const MarketStatus = {
+  ACTIVE: 0,
+  RESOLVED: 1,
+  CANCELLED: 2,
+} as const;
+
+export type MarketStatus = typeof MarketStatus[keyof typeof MarketStatus];
 
 export interface MarketCreatedEvent {
   marketId: bigint;
@@ -775,8 +921,40 @@ export interface MarketResolvedEvent {
   outcome: boolean;
 }
 
-export interface WinningsClaimedEvent {
+export interface UsernameSetEvent {
+  user: string;
+  username: string;
+}
+
+export interface UsernameChangedEvent {
+  user: string;
+  oldUsername: string;
+  newUsername: string;
+}
+
+export interface RewardsDisbursedEvent {
   marketId: bigint;
   claimant: string;
   amount: bigint;
+}
+
+export interface WinningsClaimedEvent {
+  marketId: bigint;
+  user: string;
+  amount: bigint;
+}
+
+// User participation interface
+export interface UserParticipation {
+  participated: boolean;
+  side: boolean; // true for YES, false for NO
+  yesShares: bigint;
+  noShares: bigint;
+}
+
+// Winner information interface
+export interface WinnerInfo {
+  isWinner: boolean;
+  winnings: bigint;
+  hasClaimed: boolean;
 }

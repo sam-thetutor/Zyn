@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
@@ -8,8 +9,7 @@ import Markets from './pages/Markets';
 import CreateMarket from './pages/CreateMarket';
 import MarketDetail from './pages/MarketDetail';
 import Profile from './pages/Profile';
-// import AdminPage from './pages/AdminPage';
-import './App.css';
+ import AdminPage from './pages/AdminPage';
 
 // Initialize Farcaster SDK
 import '@farcaster/miniapp-sdk';
@@ -28,7 +28,7 @@ function App() {
               <Route path="/create" element={<CreateMarket />} />
               <Route path="/market/:id" element={<MarketDetail />} />
               <Route path="/profile" element={<Profile />} />
-              {/* <Route path="/admin" element={<AdminPage />} /> */}
+              <Route path="/admin" element={<AdminPage />} />
             </Routes>
           </Layout>
         </Router>

@@ -1,66 +1,133 @@
-import { useState } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { CONTRACTS } from '../utils/contracts';
-import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../utils/constants';
+import { useCallback, useState } from 'react';
+import { usePredictionMarket } from './usePredictionMarket';
+import { useAccount } from 'wagmi';
+import { formatEther } from 'viem';
+import type { WinnerInfo } from '../utils/contracts';
 
-export const useMarketResolution = () => {
-  const [resolving, setResolving] = useState(false);
-  const [resolveError, setResolveError] = useState<Error | null>(null);
-  const [resolveSuccess, setResolveSuccess] = useState(false);
+export const useMarketResolution = (marketId: bigint) => {
+  const { 
+    resolveMarket, 
+    calculateWinners, 
+    claimWinnings,
+    getWinnerInfo,
+    isWinner,
+    calculateUserWinnings,
+    hasClaimed
+  } = usePredictionMarket();
+  
+  const { address: userAddress } = useAccount();
+  
+  const [winnerInfo, setWinnerInfo] = useState<WinnerInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { writeContract, data: hash, error: writeError } = useWriteContract();
-
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash,
-  });
-
-  const resolveMarket = async (marketId: bigint, outcome: boolean) => {
-    if (!marketId) {
-      throw new Error('Market ID is required');
-    }
-
-    setResolving(true);
-    setResolveError(null);
-    setResolveSuccess(false);
-
+  // Resolve market
+  const handleResolveMarket = useCallback(async (outcome: boolean) => {
+    if (!marketId) return;
+    
     try {
-      writeContract({
-        address: CONTRACTS.PREDICTION_MARKET.address,
-        abi: CONTRACTS.PREDICTION_MARKET.abi,
-        functionName: 'resolveMarket',
-        args: [marketId, outcome],
-      });
-    } catch (error) {
-      setResolveError(error instanceof Error ? error : new Error('Failed to resolve market'));
-      setResolving(false);
-      throw error;
+      setLoading(true);
+      setError(null);
+      
+      await resolveMarket(marketId, outcome);
+      
+      // After resolution, calculate winners
+      await calculateWinners(marketId);
+      
+    } catch (err) {
+      console.error('Error resolving market:', err);
+      setError(err instanceof Error ? err.message : 'Failed to resolve market');
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [marketId, resolveMarket, calculateWinners]);
 
-  // Handle transaction confirmation
-  if (isConfirmed && !resolveSuccess) {
-    setResolveSuccess(true);
-    setResolving(false);
-  }
+  // Calculate winners for a market
+  const handleCalculateWinners = useCallback(async () => {
+    if (!marketId) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await calculateWinners(marketId);
+      
+    } catch (err) {
+      console.error('Error calculating winners:', err);
+      setError(err instanceof Error ? err.message : 'Failed to calculate winners');
+    } finally {
+      setLoading(false);
+    }
+  }, [marketId, calculateWinners]);
 
-  // Handle write errors
-  if (writeError && !resolveError) {
-    setResolveError(new Error(writeError.message));
-    setResolving(false);
-  }
+  // Claim winnings
+  const handleClaimWinnings = useCallback(async () => {
+    if (!marketId || !userAddress) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await claimWinnings(marketId);
+      
+      // Refresh winner info after claiming
+      if (userAddress) {
+        const newWinnerInfo = await getWinnerInfo(marketId, userAddress);
+        setWinnerInfo(newWinnerInfo);
+      }
+      
+    } catch (err) {
+      console.error('Error claiming winnings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to claim winnings');
+    } finally {
+      setLoading(false);
+    }
+  }, [marketId, userAddress, claimWinnings, getWinnerInfo]);
 
-  // Reset success state after a delay
-  if (resolveSuccess) {
-    setTimeout(() => {
-      setResolveSuccess(false);
-    }, 3000);
-  }
+  // Check if user is winner and get winnings info
+  const checkUserWinnings = useCallback(async () => {
+    if (!marketId || !userAddress) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const info = await getWinnerInfo(marketId, userAddress);
+      setWinnerInfo(info);
+      
+    } catch (err) {
+      console.error('Error checking user winnings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to check user winnings');
+    } finally {
+      setLoading(false);
+    }
+  }, [marketId, userAddress, getWinnerInfo]);
+
+  // Check if user can claim (is winner and hasn't claimed)
+  const canClaim = winnerInfo?.isWinner && !winnerInfo?.hasClaimed;
+
+  // Get formatted winnings amount
+  const formattedWinnings = winnerInfo?.winnings ? `${formatEther(winnerInfo.winnings)} CELO` : '0 CELO';
 
   return {
-    resolveMarket,
-    resolving: resolving || isConfirming,
-    resolveError,
-    resolveSuccess,
-    transactionHash: hash,
+    // State
+    winnerInfo,
+    loading,
+    error,
+    
+    // Computed values
+    canClaim,
+    formattedWinnings,
+    
+    // Actions
+    resolveMarket: handleResolveMarket,
+    calculateWinners: handleCalculateWinners,
+    claimWinnings: handleClaimWinnings,
+    checkUserWinnings,
+    
+    // Utility functions
+    isWinner: winnerInfo?.isWinner || false,
+    hasClaimed: winnerInfo?.hasClaimed || false,
+    winnings: winnerInfo?.winnings || 0,
   };
 };

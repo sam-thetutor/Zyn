@@ -1,4 +1,4 @@
-import { PREDICTION_MARKET_ABI } from './contracts';
+import { PREDICTION_MARKET_CORE_ABI, PREDICTION_MARKET_CLAIMS_ABI } from './contracts';
 
 // Network Configuration
 export const NETWORKS = {
@@ -24,18 +24,32 @@ export const NETWORKS = {
 
 // Contract Configuration
 export const CONTRACTS = {
-  PREDICTION_MARKET: {
-    // Celo Alfajores contract
+  PREDICTION_MARKET_CORE: {
+    // Celo Alfajores core contract
     CELO_ALFAJORES: {
-      address: import.meta.env.VITE_CELO_CONTRACT_ADDRESS || '0x0C49604c65588858DC206AAC6EFEc0F8Afe2d1d6',
-      name: 'PredictionMarket',
-      abi: PREDICTION_MARKET_ABI,
+      address: import.meta.env.VITE_CELO_CORE_CONTRACT_ADDRESS || '0xEF2B2cc9c95996213CC6525B55E2B8CF11fc5E38',
+      name: 'PredictionMarketCore',
+      abi: PREDICTION_MARKET_CORE_ABI,
     },
-    // Base Mainnet contract (placeholder - needs to be deployed)
+    // Base Mainnet core contract (placeholder - needs to be deployed)
     BASE_MAINNET: {
-      address: import.meta.env.VITE_BASE_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000',
-      name: 'PredictionMarket',
-      abi: PREDICTION_MARKET_ABI,
+      address: import.meta.env.VITE_BASE_CORE_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000',
+      name: 'PredictionMarketCore',
+      abi: PREDICTION_MARKET_CORE_ABI,
+    },
+  },
+  PREDICTION_MARKET_CLAIMS: {
+    // Celo Alfajores claims contract
+    CELO_ALFAJORES: {
+      address: import.meta.env.VITE_CELO_CLAIMS_CONTRACT_ADDRESS || '0xB555eff91049546Bf525aB1CCAa2b1edfD6c3218',
+      name: 'PredictionMarketClaims',
+      abi: PREDICTION_MARKET_CLAIMS_ABI,
+    },
+    // Base Mainnet claims contract (placeholder - needs to be deployed)
+    BASE_MAINNET: {
+      address: import.meta.env.VITE_BASE_CLAIMS_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000',
+      name: 'PredictionMarketClaims',
+      abi: PREDICTION_MARKET_CLAIMS_ABI,
     },
   },
 } as const;
@@ -53,6 +67,9 @@ export const APP_CONFIG = {
   minMarketDuration: 60 * 60, // 1 hour in seconds
   maxQuestionLength: 200,
   maxDescriptionLength: 500,
+  maxSourceLength: 100,
+  marketCreationFee: '0.001', // 0.001 CELO
+  usernameChangeFee: '0.00001', // 0.00001 CELO
 } as const;
 
 // UI Configuration
@@ -60,8 +77,11 @@ export const UI_CONFIG = {
   itemsPerPage: 12,
   maxQuestionLength: 200,
   maxDescriptionLength: 500,
+  maxSourceLength: 100,
   defaultGasLimit: 300000,
   defaultGasPrice: '1000000000', // 1 gwei
+  marketCreationFee: '0.001', // 0.001 CELO
+  usernameChangeFee: '0.00001', // 0.00001 CELO
 } as const;
 
 // Error Messages
@@ -79,6 +99,10 @@ export const ERROR_MESSAGES = {
   MARKET_NOT_ACTIVE: 'Market is not active',
   ALREADY_CLAIMED: 'Winnings have already been claimed',
   NO_WINNINGS_TO_CLAIM: 'No winnings to claim for this market',
+  MARKET_NOT_RESOLVED: 'Market must be resolved before claiming',
+  INSUFFICIENT_CONTRACT_BALANCE: 'Insufficient contract balance for payout',
+  WINNER_CALCULATION_FAILED: 'Failed to calculate winners for this market',
+  CLAIMING_NOT_AVAILABLE: 'Claiming is not available for this market',
 } as const;
 
 // Success Messages
@@ -89,6 +113,10 @@ export const SUCCESS_MESSAGES = {
   SHARES_SOLD: 'Shares sold successfully',
   MARKET_RESOLVED: 'Market resolved successfully',
   Winnings_CLAIMED: 'Winnings claimed successfully',
+  WINNERS_CALCULATED: 'Winners calculated successfully',
+  REWARDS_DISBURSED: 'Rewards disbursed successfully',
   FEES_UPDATED: 'Fees updated successfully',
   ADMIN_CHANGED: 'Admin address changed successfully',
 } as const;
+
+export const changeFeeData = 10000000000000000

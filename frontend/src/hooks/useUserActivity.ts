@@ -1,7 +1,7 @@
 // User Activity Hook - Tracks user interactions with prediction markets
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
-import { CONTRACTS } from '../utils/constants';
+import { useContractAddress } from './useContractAddress';
 
 export interface UserActivity {
   id: string;
@@ -22,6 +22,7 @@ export interface UserActivity {
 export const useUserActivity = () => {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
+  const { coreContractAddress, coreContractABI, claimsContractAddress, claimsContractABI } = useContractAddress();
   const [activities, setActivities] = useState<UserActivity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +43,7 @@ export const useUserActivity = () => {
       // 1. Fetch Market Created events
       try {
         const marketCreatedLogs = await publicClient.getLogs({
-          address: CONTRACTS.PREDICTION_MARKET.address,
+          address: coreContractAddress,
           event: {
             type: 'event',
             name: 'MarketCreated',
@@ -79,7 +80,7 @@ export const useUserActivity = () => {
       // 2. Fetch Shares Bought events
       try {
         const sharesBoughtLogs = await publicClient.getLogs({
-          address: CONTRACTS.PREDICTION_MARKET.address,
+          address: coreContractAddress,
           event: {
             type: 'event',
             name: 'SharesBought',
@@ -118,7 +119,7 @@ export const useUserActivity = () => {
       // 3. Fetch Market Resolved events (for markets the user participated in)
       try {
         const marketResolvedLogs = await publicClient.getLogs({
-          address: CONTRACTS.PREDICTION_MARKET.address,
+          address: coreContractAddress,
           event: {
             type: 'event',
             name: 'MarketResolved',
@@ -165,17 +166,17 @@ export const useUserActivity = () => {
       // 4. Fetch Winnings Claimed events
       try {
         const winningsClaimedLogs = await publicClient.getLogs({
-          address: CONTRACTS.PREDICTION_MARKET.address,
+          address: claimsContractAddress,
           event: {
             type: 'event',
             name: 'WinningsClaimed',
             inputs: [
               { type: 'uint256', name: 'marketId', indexed: true },
-              { type: 'address', name: 'claimant', indexed: true },
+              { type: 'address', name: 'user', indexed: true },
               { type: 'uint256', name: 'amount', indexed: false }
             ]
           },
-          args: { claimant: address },
+          args: { user: address },
           fromBlock,
           toBlock: currentBlock,
         });
@@ -208,14 +209,14 @@ export const useUserActivity = () => {
           if (activity.question.startsWith('Market #')) {
             try {
               const marketData = await publicClient.readContract({
-                address: CONTRACTS.PREDICTION_MARKET.address,
-                abi: CONTRACTS.PREDICTION_MARKET.abi,
+                address: coreContractAddress,
+                abi: coreContractABI,
                 functionName: 'getMarket',
                 args: [activity.marketId],
               });
 
               if (marketData) {
-                const [id, question, description, category, image, endTime, status, outcome, totalYes, totalNo, totalPool] = marketData as any;
+                const [id, question, category, image, endTime, status, outcome, totalYes, totalNo, totalPool] = marketData as any;
                 return {
                   ...activity,
                   question: question || `Market #${activity.marketId}`,

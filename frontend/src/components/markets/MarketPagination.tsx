@@ -50,22 +50,22 @@ const MarketPagination: React.FC<MarketPaginationProps> = ({
   const pageNumbers = getPageNumbers();
 
   return (
-    <div className="card slide-up">
+    <div className="card slide-up pagination-container">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         {/* Page Info */}
-        <div className="text-sm text-secondary mb-4 sm:mb-0">
+        <div className="text-sm text-secondary mb-4 sm:mb-0 pagination-info">
           Showing <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{startItem}</span> to{' '}
           <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{endItem}</span> of{' '}
           <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{totalItems}</span> results
         </div>
 
         {/* Pagination Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pagination-controls">
           {/* Previous Button */}
           <button
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="relative inline-flex items-center px-3 py-2 text-sm font-medium rounded-l-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative inline-flex items-center px-3 py-2 text-sm font-medium rounded-l-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed pagination-button"
             style={{ 
               color: 'var(--color-text-secondary)',
               backgroundColor: 'var(--color-bg-secondary)',
@@ -95,7 +95,7 @@ const MarketPagination: React.FC<MarketPaginationProps> = ({
             <button
               key={page}
               onClick={() => onPageChange(page)}
-              className="relative inline-flex items-center px-3 py-2 text-sm font-medium border transition-all duration-200"
+              className="relative inline-flex items-center px-3 py-2 text-sm font-medium border transition-all duration-200 pagination-page-button"
               style={{
                 backgroundColor: page === currentPage ? 'var(--color-bg-accent)' : 'var(--color-bg-secondary)',
                 borderColor: page === currentPage ? 'var(--color-primary)' : 'var(--color-border-medium)',
@@ -123,7 +123,7 @@ const MarketPagination: React.FC<MarketPaginationProps> = ({
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="relative inline-flex items-center px-3 py-2 text-sm font-medium rounded-r-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative inline-flex items-center px-3 py-2 text-sm font-medium rounded-r-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed pagination-button"
             style={{ 
               color: 'var(--color-text-secondary)',
               backgroundColor: 'var(--color-bg-secondary)',
@@ -152,14 +152,14 @@ const MarketPagination: React.FC<MarketPaginationProps> = ({
 
       {/* Quick Navigation */}
       {totalPages > 10 && (
-        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--color-border-light)' }}>
-          <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+        <div className="mt-4 pt-4 quick-navigation" style={{ borderTop: '1px solid var(--color-border-light)' }}>
+          <div className="flex flex-wrap items-center justify-center gap-2 text-sm quick-navigation-buttons">
             <span className="text-secondary">Quick jump:</span>
             {[1, Math.floor(totalPages / 2), totalPages].map((page) => (
               <button
                 key={page}
                 onClick={() => onPageChange(page)}
-                className="transition-all duration-200 hover:underline"
+                className="transition-all duration-200 hover:underline quick-navigation-button"
                 style={{ color: 'var(--color-primary)' }}
                 onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-primary-dark)'}
                 onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-primary)'}

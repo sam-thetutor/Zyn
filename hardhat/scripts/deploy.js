@@ -16,9 +16,17 @@ async function main() {
     // Deploy the PredictionMarket contract
     console.log("📦 Deploying PredictionMarket contract...");
     const PredictionMarket = await ethers.getContractFactory("PredictionMarket");
+    
+    // Estimate gas first
+    const deploymentData = PredictionMarket.interface.encodeDeploy();
+    const estimatedGas = await ethers.provider.estimateGas({
+        from: deployer.address,
+        data: deploymentData
+    });
+    console.log("⛽ Estimated gas:", estimatedGas.toString());
+    
     const predictionMarket = await PredictionMarket.deploy({
-        gasLimit: 3000000 // Set gas limit to control costs
-        // Let Hardhat estimate gas price automatically
+        gasLimit: 1000000 // Set very high gas limit for deployment
     });
     
     await predictionMarket.waitForDeployment();

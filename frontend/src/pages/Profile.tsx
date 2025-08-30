@@ -5,6 +5,7 @@ import { formatEther } from 'viem';
 import { useUserActivity } from '../hooks/useUserActivity';
 import UserActivityStats from '../components/profile/UserActivityStats';
 import UserActivityFeed from '../components/profile/UserActivityFeed';
+import UsernameManagement from '../components/profile/UsernameManagement';
 
 const Profile: React.FC = () => {
   const { address, isConnected, chainId } = useAccount();
@@ -88,7 +89,7 @@ const Profile: React.FC = () => {
         </p>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Wallet Information Card */}
         <div className="card">
           <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>Wallet Information</h2>
@@ -141,6 +142,9 @@ const Profile: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Username Management Card */}
+        <UsernameManagement />
       </div>
 
       {/* Activity Statistics */}
