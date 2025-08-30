@@ -1,4 +1,5 @@
 import React from 'react';
+import NotificationContainer from '../components/NotificationContainer';
 
 const Home: React.FC = () => {
   return (
@@ -27,6 +28,7 @@ const Home: React.FC = () => {
           </div>
         </div>
       </div>
+      <NotificationContainer />
     </div>
   );
 };

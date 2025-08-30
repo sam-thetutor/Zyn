@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { useMarkets } from '../hooks/useMarkets';
 import { useMarketParticipants } from '../hooks/useMarketParticipants';
+import NotificationContainer from '../components/NotificationContainer';
 import { formatEther } from 'viem';
 
 const MarketDetail: React.FC = () => {
@@ -380,6 +381,7 @@ const MarketDetail: React.FC = () => {
           </div>
         </div>
       </div>
+      <NotificationContainer />
     </div>
   );
 };

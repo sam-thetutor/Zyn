@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import MarketCard from '../components/MarketCard';
 import { useMarkets } from '../hooks/useMarkets';
 import { useAccount } from 'wagmi';
+import NotificationContainer from '../components/NotificationContainer';
 
 const Markets: React.FC = () => {
   const { isConnected } = useAccount();
@@ -302,6 +303,7 @@ const Markets: React.FC = () => {
           </div>
         </div>
       )}
+      <NotificationContainer />
     </div>
   );
 };

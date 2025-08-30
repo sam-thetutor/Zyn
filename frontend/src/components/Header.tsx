@@ -40,26 +40,24 @@ const Header: React.FC = () => {
             {/* Right Side - Navigation Links + Wallet Connection */}
             <div className="flex items-center space-x-8">
               {/* Desktop Navigation Links */}
-              <nav className="hidden md:flex items-center space-x-6">
-                <Link
-                  to="/"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActiveLink('/')
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+              <nav className="hidden md:flex items-center space-x-8">
+                <Link 
+                  to="/" 
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
                 >
                   Home
                 </Link>
-                <Link
-                  to="/markets"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActiveLink('/markets')
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                <Link 
+                  to="/markets" 
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
                 >
                   Markets
+                </Link>
+                <Link 
+                  to="/create-market" 
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+                >
+                  Create Market
                 </Link>
               </nav>
 
@@ -147,6 +145,17 @@ const Header: React.FC = () => {
                   }`}
                 >
                   Markets
+                </Link>
+                <Link
+                  to="/create-market"
+                  onClick={closeMobileMenu}
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    isActiveLink('/create-market')
+                      ? 'text-blue-600 bg-blue-50'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  Create Market
                 </Link>
               </nav>
               
