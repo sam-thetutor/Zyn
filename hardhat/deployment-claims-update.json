@@ -1,8 +1,8 @@
 {
   "network": "celo-mainnet",
-  "timestamp": "2025-09-01T11:11:29.386Z",
+  "timestamp": "2025-09-01T21:39:20.347Z",
   "coreContract": "0x0C49604c65588858DC206AAC6EFEc0F8Afe2d1d6",
-  "claimsContract": "0x77247f3f648986ddC262D5D4fb8cf51509dE4D83",
+  "claimsContract": "0xfFA05a77182e2CECA2667Eeec5367F8F1683478C",
   "deployer": "0x21D654daaB0fe1be0e584980ca7C1a382850939f",
   "note": "UPDATED with winnings fix for no-losing-shares scenario"
 }

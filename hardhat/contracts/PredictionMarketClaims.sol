@@ -129,8 +129,16 @@ contract PredictionMarketClaims is Ownable, ReentrancyGuard {
         
         // Calculate winnings based on scenario
         if (losingShares > 0) {
-            // Normal case: distribute losing shares among winners
-            uint256 totalWinnerAmount = (market.totalPool * 70) / 100;
+            // Calculate platform fee from losers' stakes (30%)
+            uint256 platformFee = (losingShares * 30) / 100;
+            
+            // Calculate amount available for winners from losers' stakes (70%)
+            uint256 winnersFromLosers = (losingShares * 70) / 100;
+            
+            // Winners get: their original stake + 70% of losers' stakes
+            uint256 totalWinnerAmount = winningShares + winnersFromLosers;
+            
+            // Calculate user's share of the winnings
             uint256 userWinnings = (totalWinnerAmount * userShares) / winningShares;
             return userWinnings;
         } else {

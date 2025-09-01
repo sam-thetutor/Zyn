@@ -238,6 +238,16 @@ const MarketDetail: React.FC = () => {
                  log.args.marketId?.toString() === id;
         });
         
+        // DEBUG: Log ALL WinningsClaimed events to see what's happening
+        const allWinningsClaimedEvents = allLogs.filter(log => log.eventName === 'WinningsClaimed');
+        console.log('ALL WinningsClaimed events in logs:', allWinningsClaimedEvents.map(log => ({
+          marketId: log.args.marketId?.toString(),
+          claimant: log.args.claimant,
+          amount: log.args.amount,
+          transactionHash: log.transactionHash,
+          network: log.network
+        })));
+        
         console.log('Found user WinningsClaimed events from logs:', userClaimLogs);
         console.log('Found all user claims for this market:', allUserClaims);
         
@@ -958,8 +968,8 @@ const MarketDetail: React.FC = () => {
                   </div>
                 ) : isClaimConfirming ? (
                   <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Processing...
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Claiming...
                   </div>
                 ) : hasClaimedWinnings ? (
                   'Already Claimed'
@@ -986,20 +996,7 @@ const MarketDetail: React.FC = () => {
                 </div>
               </div>
               
-              {/* Debug information */}
-              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                <div className="font-medium text-yellow-800 mb-2">Debug Info:</div>
-                <div className="space-y-1 text-yellow-700">
-                  <div>Market Outcome: {market.outcome ? 'Yes' : 'No'}</div>
-                  <div>Your YES Shares: {formatEther(getUserShares().yesShares)}</div>
-                  <div>Your NO Shares: {formatEther(getUserShares().noShares)}</div>
-                  <div>Can Claim: {canClaimWinnings ? 'Yes' : 'No'}</div>
-                  <div>Has Claimed: {hasClaimedWinnings ? 'Yes' : 'No'}</div>
-                  <div>Market Status: {market.status}</div>
-                  <div>Claim Button Disabled: {(isClaiming || isClaimPending || isClaimConfirming || hasClaimedWinnings) ? 'Yes' : 'No'}</div>
-                  <div>Condition: canClaimWinnings && !hasClaimedWinnings = {(canClaimWinnings && !hasClaimedWinnings) ? 'True' : 'False'}</div>
-                </div>
-              </div>
+              
             </div>
           )}
         </div>

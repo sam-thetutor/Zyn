@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAccount, useDisconnect } from 'wagmi';
-import { useReferral } from '../contexts/ReferralContext';
 import ConnectWallet from './ConnectWallet';
 
 const Header: React.FC = () => {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const location = useLocation();
-  const { referralCode, referralAddress } = useReferral();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Check if current user is admin

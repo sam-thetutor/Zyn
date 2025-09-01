@@ -6,11 +6,13 @@ import { formatEther } from "viem";
 import { useMiniApp } from "../hooks/useMiniApp";
 import NotificationContainer from "../components/NotificationContainer";
 import ReferralBanner from "../components/ReferralBanner";
+import { useEventsStore } from "../stores/eventsStore";
 
 const Home: React.FC = () => {
   const { allMarkets, loading: marketsLoading } = useMarkets();
   // const publicClient = usePublicClient();
   const { isMiniApp, composeCast, addToFarcaster, triggerHaptic } = useMiniApp();
+  const { logs, fetchAllLogs } = useEventsStore();
   const [stats, setStats] = useState({
     totalMarkets: 0,
     activeTraders: 0,
@@ -19,6 +21,13 @@ const Home: React.FC = () => {
   });
   // const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
+  // Load events data when component mounts
+  useEffect(() => {
+    if (logs.length === 0) {
+      fetchAllLogs();
+    }
+  }, [logs.length, fetchAllLogs]);
+
   // Calculate statistics
   useEffect(() => {
     if (allMarkets.length > 0) {
@@ -26,22 +35,52 @@ const Home: React.FC = () => {
       const marketsResolved = allMarkets.filter((m) => m.status === 1).length;
       const totalVolume = allMarkets.reduce((sum, m) => sum + m.totalPool, 0n);
 
-      // Count unique participants (simplified)
-      const uniqueParticipants = new Set();
-      allMarkets.forEach((market) => {
-        if (market.totalYes > 0n || market.totalNo > 0n) {
-          uniqueParticipants.add("participant"); // Simplified for now
+      // Count unique active traders from events
+      const uniqueTraders = new Set<string>();
+      
+      // Get all trading-related events
+      const tradingEvents = logs.filter(log => 
+        log.eventName === 'SharesBought' || 
+        log.eventName === 'MarketCreated' ||
+        log.eventName === 'WinningsClaimed'
+      );
+
+      // Extract unique addresses from trading events
+      tradingEvents.forEach(event => {
+        const args = event.args || {};
+        
+        // Market creators
+        if (args.creator) {
+          uniqueTraders.add(args.creator.toLowerCase());
+        }
+        
+        // Share buyers
+        if (args.buyer) {
+          uniqueTraders.add(args.buyer.toLowerCase());
+        }
+        
+        // Winnings claimants
+        if (args.claimant) {
+          uniqueTraders.add(args.claimant.toLowerCase());
         }
       });
 
+      // Debug logging
+      console.log('📊 Home Stats Calculation:');
+      console.log('  Total Markets:', totalMarkets);
+      console.log('  Unique Traders:', uniqueTraders.size);
+      console.log('  Trading Events:', tradingEvents.length);
+      console.log('  Total Volume:', formatEther(totalVolume), 'CELO');
+      console.log('  Markets Resolved:', marketsResolved);
+
       setStats({
         totalMarkets,
-        activeTraders: uniqueParticipants.size,
+        activeTraders: uniqueTraders.size,
         totalVolume,
         marketsResolved,
       });
     }
-  }, [allMarkets]);
+  }, [allMarkets, logs]);
 
   // Get trending markets (most active)
   const getTrendingMarkets = () => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAccount } from 'wagmi';
+import { useAccount, useBalance } from 'wagmi';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
 import { useEventsStore } from '../stores/eventsStore';
 import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
@@ -8,7 +8,7 @@ import { useMiniApp } from '../hooks/useMiniApp';
 import { useReferral } from '../contexts/ReferralContext';
 import ReferralBanner from '../components/ReferralBanner';
 import NotificationContainer from '../components/NotificationContainer';
-import { parseEther } from 'viem';
+import { parseEther, formatEther } from 'viem';
 
 interface CreateMarketForm {
   question: string;
@@ -27,6 +27,11 @@ const CreateMarket: React.FC = () => {
   const { fetchAllLogs } = useEventsStore();
   const { isMiniApp, composeCast, triggerNotificationHaptic } = useMiniApp();
   const { referralCode, submitReferral } = useReferral();
+  
+  // Check user's Celo balance
+  const { data: balance } = useBalance({
+    address: address,
+  });
   
   const { 
     notifyMarketCreated, 
@@ -48,7 +53,6 @@ const CreateMarket: React.FC = () => {
 
   const [validationErrors, setValidationErrors] = useState<Partial<CreateMarketForm>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
 
   // Predefined categories
   const categories = [
@@ -73,7 +77,6 @@ const CreateMarket: React.FC = () => {
 
   useEffect(() => {
     if (isSuccess && hash) {
-      setIsCreating(false); // Hide loader
       notifyMarketCreated(formData.question);
       
       // Refresh logs to include the new market (with delay to ensure transaction is processed)
@@ -155,6 +158,7 @@ const CreateMarket: React.FC = () => {
     }
   };
 
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -168,10 +172,16 @@ const CreateMarket: React.FC = () => {
       return;
     }
 
+    // Check if user has sufficient balance
+    const marketCreationFee = parseEther('1'); // 1 CELO
+    if (balance && balance.value < marketCreationFee) {
+      notifyValidationError(`Insufficient balance. You need at least 1 CELO to create a market. Current balance: ${formatEther(balance.value)} CELO`);
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       notifyMarketCreationStarted();
-      setIsCreating(true); // Start loader
 
       // Combine date and time
       const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
@@ -187,7 +197,7 @@ const CreateMarket: React.FC = () => {
         formData.question,
         formData.description,
         formData.category,
-        formData.image || 'https://via.placeholder.com/400x300?text=Market+Image',
+        formData.image || 'https://picsum.photos/400/300?random=1',
         sourceLinks, // source
         BigInt(endTimestamp),
         parseEther('1') //  1 CELO value - market creation fee
@@ -200,11 +210,29 @@ const CreateMarket: React.FC = () => {
 
     } catch (err) {
       console.error('Error creating market:', err);
-      setIsCreating(false); // Hide loader on error
-      notifyMarketCreationFailed('Failed to create the prediction market. Please try again or check your wallet connection.');
+      
+      // Provide more specific error messages based on the error type
+      let errorMessage = 'Failed to create the prediction market. Please try again.';
+      
+      if (err instanceof Error) {
+        if (err.message.includes('Invalid user address')) {
+          errorMessage = 'Wallet connection issue. Please reconnect your wallet and try again.';
+        } else if (err.message.includes('Failed to get valid wallet account')) {
+          errorMessage = 'Unable to access your wallet account. Please check your wallet connection.';
+        } else if (err.message.includes('Core contract not found')) {
+          errorMessage = 'Network connection issue. Please check your network settings.';
+        } else if (err.message.includes('Insufficient balance')) {
+          errorMessage = 'Insufficient CELO balance. You need at least 1 CELO to create a market.';
+        } else if (err.message.includes('User rejected')) {
+          errorMessage = 'Transaction was cancelled. Please try again if you want to create the market.';
+        } else if (err.message.includes('gas')) {
+          errorMessage = 'Transaction failed due to gas issues. Please try again.';
+        }
+      }
+      
+      notifyMarketCreationFailed(errorMessage);
     } finally {
       setIsSubmitting(false);
-      setIsCreating(false); // Stop loader
     }
   };
 
@@ -224,24 +252,6 @@ const CreateMarket: React.FC = () => {
               Please connect your wallet to create prediction markets.
             </p>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loader while market is being created
-  if (isCreating) {
-    return (
-      <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8 max-w-md mx-4 text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Creating Market...
-          </h2> 
-          
-          <p className="text-xs text-gray-400 mt-4">
-            This may take a few moments. Please don't close this page.
-          </p>
         </div>
       </div>
     );
@@ -480,7 +490,7 @@ const CreateMarket: React.FC = () => {
               </div>
             )}
 
-            {/* Fee Information */}
+            {/* Balance and Fee Information */}
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
               <div className="flex items-center space-x-3">
                 <div className="flex-shrink-0">
@@ -488,12 +498,20 @@ const CreateMarket: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                 </div>
-                <div>
+                <div className="flex-1">
                   <h4 className="text-sm font-medium text-amber-800">Market Creation Fee</h4>
                   <p className="text-sm text-amber-700">
                     Creating a prediction market costs <span className="font-semibold">1 CELO</span>. 
                     This fee helps maintain the platform and prevent spam.
                   </p>
+                  {balance && (
+                    <p className="text-sm text-amber-700 mt-1">
+                      Your current balance: <span className="font-semibold">{formatEther(balance.value)} {balance.symbol}</span>
+                      {balance.value < parseEther('1') && (
+                        <span className="text-red-600 ml-2">⚠️ Insufficient balance</span>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -514,8 +532,8 @@ const CreateMarket: React.FC = () => {
               >
                 {isPending || isSubmitting ? (
                   <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Creating Market...
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Creating...
                   </div>
                 ) : (
                   'Create Market'

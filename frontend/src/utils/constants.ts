@@ -51,9 +51,9 @@ export const CONTRACTS = {
       name: 'PredictionMarketClaims',
       abi: PREDICTION_MARKET_CLAIMS_ABI,
     },
-    // Celo Mainnet claims contract (UPDATED with winnings fix)
+    // Celo Mainnet claims contract (UPDATED with winnings fix - v2)
     CELO_MAINNET: {
-      address: import.meta.env.VITE_CELO_MAINNET_CLAIMS_CONTRACT_ADDRESS || '0x77247f3f648986ddC262D5D4fb8cf51509dE4D83',
+      address: import.meta.env.VITE_CELO_MAINNET_CLAIMS_CONTRACT_ADDRESS || '0xfFA05a77182e2CECA2667Eeec5367F8F1683478C',
       name: 'PredictionMarketClaims',
       abi: PREDICTION_MARKET_CLAIMS_ABI,
     },

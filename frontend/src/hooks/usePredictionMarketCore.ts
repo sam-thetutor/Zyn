@@ -1,14 +1,17 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useReadContract } from 'wagmi';
 import { formatEther, parseEther } from 'viem';
-import { useContractAddress } from './useContractAddress';
+import { useContractAddress } from './useContractAddress.ts';
 import type { Market, MarketStatus, UserParticipation } from '../utils/contracts';
+import { getReferralTag, submitReferral } from '@divvi/referral-sdk';
+
 
 export const usePredictionMarketCore = () => {
   const { coreContractAddress, coreContractABI, isSupportedNetwork } = useContractAddress();
   const publicClient = usePublicClient();
   const { address: userAddress } = useAccount();
 
+  
   const contractConfig = useMemo(() => ({
     address: coreContractAddress || '0x0000000000000000000000000000000000000000',
     abi: coreContractABI || [],
@@ -31,11 +34,31 @@ export const usePredictionMarketCore = () => {
 
   // Write contract functions
   const { writeContract, data: hash, isPending } = useWriteContract();
+  console.log('hash', hash);
 
   // Wait for transaction receipt
   const { isLoading: isConfirming, isSuccess, isError } = useWaitForTransactionReceipt({
     hash,
   });
+
+  // Handle referral submission when transaction succeeds
+  useEffect(() => {
+    if (isSuccess && hash && userAddress) {
+      const submitReferralData = async () => {
+        try {
+          await submitReferral({
+            txHash: hash,
+            chainId: 42220, // Celo Mainnet
+          });
+          console.log('Referral submitted successfully for transaction:', hash);
+        } catch (error) {
+          console.warn('Referral submission failed, but transaction succeeded:', error);
+        }
+      };
+      
+      submitReferralData();
+    }
+  }, [isSuccess, hash, userAddress]);
 
   // Create market - Requires wallet connection
   const createMarket = useCallback(async (
@@ -47,6 +70,10 @@ export const usePredictionMarketCore = () => {
     endTime: bigint,
     value: bigint
   ) => {
+    console.log('createMarket called with userAddress:', userAddress);
+    console.log('isSupportedNetwork:', isSupportedNetwork);
+    console.log('coreContractAddress:', coreContractAddress);
+    
     if (!userAddress) {
       throw new Error('Wallet connection required to create markets');
     }
@@ -55,12 +82,43 @@ export const usePredictionMarketCore = () => {
       throw new Error('Core contract not found on current network');
     }
 
-    writeContract({
-      ...contractConfig,
-      functionName: 'createMarket',
-      args: [question, description, category, image, source, endTime],
-      value,
-    });
+    try {
+      // Use the userAddress from wagmi instead of creating a new wallet client
+      console.log('Using userAddress for referral tag:', userAddress);
+
+      // Step 1: Generate a referral tag for the user
+      const referralTag = getReferralTag({
+        user: userAddress as `0x${string}`, // Use the validated userAddress from wagmi
+        consumer: '0x21D654daaB0fe1be0e584980ca7C1a382850939f', // Your Divvi Identifier
+      });
+
+      console.log('Creating market with referral tag:', referralTag);
+
+      // Step 2: Send the transaction using wagmi's writeContract
+      writeContract({
+        ...contractConfig,
+        functionName: 'createMarket',
+        args: [question, description, category, image, source, endTime],
+        value,
+      });
+
+      // Note: The transaction hash will be available in the hash state from useWriteContract
+      // Referral tracking will be handled when the transaction succeeds
+    } catch (error) {
+      console.error('Error creating market:', error);
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('InvalidAddressError') || error.message.includes('Invalid Ethereum address')) {
+          throw new Error('Wallet connection issue. Please reconnect your wallet and try again.');
+        } else if (error.message.includes('Failed to get valid wallet account')) {
+          throw new Error('Unable to access your wallet account. Please check your wallet connection.');
+        }
+      }
+      
+      throw error;
+    }
+  
   }, [writeContract, coreContractAddress, isSupportedNetwork, coreContractABI, contractConfig, userAddress]);
 
   // Buy shares - Requires wallet connection
@@ -77,12 +135,42 @@ export const usePredictionMarketCore = () => {
       throw new Error('Core contract not found on current network');
     }
 
-    writeContract({
-      ...contractConfig,
-      functionName: 'buyShares',
-      args: [marketId, outcome],
-      value,
-    });
+    try {
+      // Use the userAddress from wagmi instead of creating a new wallet client
+      console.log('Using userAddress for buyShares referral tag:', userAddress);
+
+      // Step 1: Generate a referral tag for the user
+      const referralTag = getReferralTag({
+        user: userAddress as `0x${string}`, // Use the validated userAddress from wagmi
+        consumer: '0x21D654daaB0fe1be0e584980ca7C1a382850939f', // Your Divvi Identifier
+      });
+
+      console.log('Buying shares with referral tag:', referralTag);
+
+      // Step 2: Use wagmi's writeContract
+      writeContract({
+        ...contractConfig,
+        functionName: 'buyShares',
+        args: [marketId, outcome],
+        value,
+      });
+
+      // Note: The transaction hash will be available in the hash state from useWriteContract
+      // Referral tracking will be handled when the transaction succeeds
+    } catch (error) {
+      console.error('Error buying shares:', error);
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('InvalidAddressError') || error.message.includes('Invalid Ethereum address')) {
+          throw new Error('Wallet connection issue. Please reconnect your wallet and try again.');
+        } else if (error.message.includes('Failed to get valid wallet account')) {
+          throw new Error('Unable to access your wallet account. Please check your wallet connection.');
+        }
+      }
+      
+      throw error;
+    }
   }, [writeContract, coreContractAddress, isSupportedNetwork, coreContractABI, contractConfig, userAddress]);
 
   // Resolve market - Requires wallet connection
@@ -302,6 +390,29 @@ export const usePredictionMarketCore = () => {
   
   const formattedUsernameChangeFee = useMemo(() => "0.00001", []); // Default value from contract constant
 
+  // Handle referral submission after successful transactions
+  const submitReferralAfterTransaction = useCallback(async (
+    type: 'market_creation' | 'share_trading',
+    marketId?: bigint,
+    outcome?: boolean,
+    txHash?: `0x${string}`
+  ) => {
+    if (!userAddress || !txHash) return;
+
+    try {
+      // Submit referral data to Divvi
+      await submitReferral({
+        txHash,
+        chainId: 42220, // Celo Mainnet
+        baseUrl: 'https://api.divvi.com', // Divvi API base URL
+      });
+      
+      console.log('Referral submitted successfully:', { type, marketId, outcome, txHash });
+    } catch (error) {
+      console.error('Error submitting referral:', error);
+    }
+  }, [userAddress]);
+
   return {
     // Contract state
     coreContractAddress,
@@ -327,6 +438,9 @@ export const usePredictionMarketCore = () => {
     resolveMarket,
     setUsername,
     changeUsername,
+    
+    // Referral functions
+    submitReferralAfterTransaction,
     
     // Read functions (async)
     getMarket,

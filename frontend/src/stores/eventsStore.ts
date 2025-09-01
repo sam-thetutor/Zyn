@@ -238,17 +238,46 @@ export const useEventsStore = create<EventsStore>((set, get) => ({
     const { logs } = get();
     if (!userAddress || !logs) return [];
     
-    return logs.filter(log => {
-      if (log.args.creator === userAddress) return true;
-      if (log.args.buyer === userAddress) return true;
-      if (log.args.seller === userAddress) return true;
-      if (log.args.resolver === userAddress) return true;
-      if (log.args.user === userAddress) return true;
-      if (log.args.claimant === userAddress) return true;
-      if (log.args.referrer === userAddress) return true;
-      if (log.args.referee === userAddress) return true;
+    console.log('getUserLogs called with:', userAddress);
+    console.log('Total logs available:', logs.length);
+    
+    const userLogs = logs.filter(log => {
+      // Check all possible user-related fields in the event args
+      const args = log.args || {};
+      
+      // Market creation events
+      if (args.creator === userAddress) return true;
+      
+      // Trading events
+      if (args.buyer === userAddress) return true;
+      if (args.seller === userAddress) return true;
+      
+      // Market resolution events
+      if (args.resolver === userAddress) return true;
+      
+      // User profile events
+      if (args.user === userAddress) return true;
+      
+      // Claiming events
+      if (args.claimant === userAddress) return true;
+      
+      // Referral events
+      if (args.referrer === userAddress) return true;
+      if (args.referee === userAddress) return true;
+      
+      // Admin events
+      if (args.oldAdmin === userAddress) return true;
+      if (args.newAdmin === userAddress) return true;
+      
+      // Contract setting events
+      if (args.oldContract === userAddress) return true;
+      if (args.newContract === userAddress) return true;
+      
       return false;
     });
+    
+    console.log('Filtered user logs:', userLogs.length);
+    return userLogs;
   },
 
   getMarketLogs: (marketId) => {

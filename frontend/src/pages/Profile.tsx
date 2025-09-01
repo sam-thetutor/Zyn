@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAccount } from 'wagmi';
+import React, { useState, useEffect } from 'react';
+import { useAccount, useBalance } from 'wagmi';
 import { useEventsStore } from '../stores/eventsStore';
 // import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
 import { useReferral } from '../contexts/ReferralContext';
@@ -12,6 +12,11 @@ const Profile: React.FC = () => {
   const { isConnected, address } = useAccount();
   const { referralStats } = useReferral();
   
+  // Fetch Celo balance
+  const { data: balance, isLoading: balanceLoading } = useBalance({
+    address: address,
+  });
+  
   // Use Zustand store
   const {
     loading: logsLoading,
@@ -21,6 +26,9 @@ const Profile: React.FC = () => {
   
   // Get user-specific logs
   const userLogs = getUserLogs(address || '');
+  console.log('User logs:', userLogs);
+  console.log('User address:', address);
+  console.log('All logs from store:', useEventsStore.getState().logs.length);
 
   // Calculate user stats from logs
   const userStats = {
@@ -32,6 +40,14 @@ const Profile: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState<'overview' | 'activities' | 'markets' | 'referrals'>('overview');
+
+  // Load logs when component mounts if not already loaded
+  useEffect(() => {
+    if (isConnected && address && !logsLoading && useEventsStore.getState().logs.length === 0) {
+      console.log('Loading logs for profile page...');
+      fetchAllLogs();
+    }
+  }, [isConnected, address, logsLoading, fetchAllLogs]);
 
   // Handle wallet not connected
   if (!isConnected || !address) {
@@ -179,7 +195,22 @@ const Profile: React.FC = () => {
 
         {/* Content based on active tab */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
+            {/* Balance Card */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <span className="text-2xl">💎</span>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Celo Balance</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {balanceLoading ? '...' : balance ? `${parseFloat(balance.formatted).toFixed(4)} ${balance.symbol}` : '0 CELO'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Stats Cards */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center">

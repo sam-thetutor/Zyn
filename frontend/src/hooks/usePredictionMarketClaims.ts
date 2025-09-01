@@ -1,12 +1,14 @@
-import { useCallback } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
-import { useContractAddress } from './useContractAddress';
+import { useCallback, useEffect } from 'react';
+import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useAccount } from 'wagmi';
+import { useContractAddress } from './useContractAddress.ts';
 import { formatEther, parseEther } from 'viem';
 import type { WinnerInfo } from '../utils/contracts';
+import { submitReferral } from '@divvi/referral-sdk';
 
 export const usePredictionMarketClaims = () => {
   const { claimsContractAddress, claimsContractABI, isSupportedNetwork } = useContractAddress();
   const publicClient = usePublicClient();
+  const { address: userAddress } = useAccount();
 
   const contractConfig = {
     address: claimsContractAddress || '0x0000000000000000000000000000000000000000',
@@ -20,6 +22,25 @@ export const usePredictionMarketClaims = () => {
   const { isLoading: isConfirming, isSuccess, isError } = useWaitForTransactionReceipt({
     hash,
   });
+
+  // Handle referral submission when transaction succeeds
+  useEffect(() => {
+    if (isSuccess && hash && userAddress) {
+      const submitReferralData = async () => {
+        try {
+          await submitReferral({
+            txHash: hash,
+            chainId: 42220, // Celo Mainnet
+          });
+          console.log('Referral submitted successfully for claims transaction:', hash);
+        } catch (error) {
+          console.warn('Referral submission failed for claims, but transaction succeeded:', error);
+        }
+      };
+      
+      submitReferralData();
+    }
+  }, [isSuccess, hash, userAddress]);
 
   // Calculate winners for a market
   const calculateWinners = useCallback(async (marketId: bigint) => {
