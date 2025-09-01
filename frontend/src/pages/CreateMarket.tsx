@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
+import { useEventsStore } from '../stores/eventsStore';
 import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
 import { useMiniApp } from '../hooks/useMiniApp';
 import { useReferral } from '../contexts/ReferralContext';
@@ -23,6 +24,7 @@ const CreateMarket: React.FC = () => {
   const navigate = useNavigate();
   const { isConnected, address } = useAccount();
   const { createMarket, isPending, isSuccess, hash } = usePredictionMarket();
+  const { fetchAllLogs } = useEventsStore();
   const { isMiniApp, composeCast, triggerNotificationHaptic } = useMiniApp();
   const { referralCode, submitReferral } = useReferral();
   
@@ -74,6 +76,11 @@ const CreateMarket: React.FC = () => {
       setIsCreating(false); // Hide loader
       notifyMarketCreated(formData.question);
       
+      // Refresh logs to include the new market (with delay to ensure transaction is processed)
+      setTimeout(() => {
+        fetchAllLogs();
+      }, 2000);
+      
       // Submit referral if user was referred
       if (referralCode) {
         submitReferral({
@@ -96,7 +103,7 @@ const CreateMarket: React.FC = () => {
         navigate('/markets');
       }, 4000);
     }
-  }, [isSuccess, hash, navigate, formData.question, notifyMarketCreated, isMiniApp, composeCast, triggerNotificationHaptic, referralCode, submitReferral]);
+  }, [isSuccess, hash, navigate, formData.question, notifyMarketCreated, isMiniApp, composeCast, triggerNotificationHaptic, referralCode, submitReferral, fetchAllLogs]);
 
   const validateForm = (): boolean => {
     const errors: Partial<CreateMarketForm> = {};

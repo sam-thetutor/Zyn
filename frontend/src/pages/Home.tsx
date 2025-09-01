@@ -70,7 +70,7 @@ const Home: React.FC = () => {
               
             </h1>
             <p className="text-xs md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Decentralized prediction markets on Base - where your insights
+              Decentralized prediction markets on Celo - where your insights
               become rewards
             </p>
 

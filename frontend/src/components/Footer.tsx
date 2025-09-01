@@ -14,7 +14,7 @@ const Footer: React.FC = () => {
               <img src="/logo.png" alt="Zyn" className="w-8 h-8" />
             </div>
             <p className="text-gray-600 mb-4 max-w-md">
-              Decentralized prediction markets on Base. Trade on the future and earn rewards for accurate predictions.
+              Decentralized prediction markets on Celo. Trade on the future and earn rewards for accurate predictions.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-gray-400 hover:text-gray-600 transition-colors">

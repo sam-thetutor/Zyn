@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAccount, usePublicClient } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { useMarkets } from '../hooks/useMarkets';
-import { useMarketParticipants } from '../hooks/useMarketParticipants';
+import { useEventsStore } from '../stores/eventsStore';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
-import { useMarketTrading } from '../hooks/useMarketTrading';
 import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
 import { useMiniApp } from '../hooks/useMiniApp';
 import { useReferral } from '../contexts/ReferralContext';
@@ -19,13 +18,63 @@ const MarketDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isConnected, address } = useAccount();
-  const publicClient = usePublicClient();
   const { isMiniApp, composeCast, triggerHaptic, triggerNotificationHaptic } = useMiniApp();
   const { referralCode, submitReferral } = useReferral();
   const { allMarkets, loading, error: marketsError } = useMarkets();
-  const { participants, loading: participantsLoading, totalParticipants, error: participantsError } = useMarketParticipants(
-    id ? BigInt(id) : undefined
-  );
+  
+  // Get market participants from events store
+  const { logs: allLogs, loading: logsLoading, fetchAllLogs } = useEventsStore();
+  
+  // Calculate participants from logs for this specific market
+  const marketParticipants = useMemo(() => {
+    if (!id || !allLogs) return [];
+    
+    const marketLogs = allLogs.filter(log => {
+      return log.args.marketId?.toString() === id && log.eventName === 'SharesBought';
+    });
+    
+    // Group by buyer address and calculate totals
+    const participantMap = new Map();
+    
+    marketLogs.forEach(log => {
+      const buyer = log.args.buyer;
+      const side = log.args.side; // true for Yes, false for No
+      const amount = BigInt(log.args.amount || 0);
+      
+      if (!participantMap.has(buyer)) {
+        participantMap.set(buyer, {
+          address: buyer,
+          totalYesShares: 0n,
+          totalNoShares: 0n,
+          totalInvestment: 0n,
+          lastParticipation: null,
+          transactions: []
+        });
+      }
+      
+      const participant = participantMap.get(buyer);
+      if (side) {
+        participant.totalYesShares += amount;
+      } else {
+        participant.totalNoShares += amount;
+      }
+      participant.totalInvestment += amount;
+      participant.lastParticipation = side;
+      participant.transactions.push({
+        side,
+        amount,
+        timestamp: log.timestamp,
+        transactionHash: log.transactionHash
+      });
+    });
+    
+    // Convert to array and sort by total investment (descending)
+    return Array.from(participantMap.values())
+      .sort((a, b) => Number(b.totalInvestment - a.totalInvestment));
+  }, [id, allLogs]);
+  
+  const totalParticipants = marketParticipants.length;
+  
   const { 
     buyShares, 
     claimWinnings, 
@@ -40,11 +89,6 @@ const MarketDetail: React.FC = () => {
   } = usePredictionMarket();
   const { notifySharesPurchaseFailed, notifySharesPurchaseStarted, notifyTransactionSuccess } = useNotificationHelpers();
   
-  // Use the market trading hook to get user shares - must be before useEffect hooks
-  const { userShares, hasShares } = useMarketTrading(
-    id ? BigInt(id) : 0n
-  );
-
   // Simple claim state
   const [canClaimWinnings, setCanClaimWinnings] = useState(false);
   const [hasClaimedWinnings, setHasClaimedWinnings] = useState(false);
@@ -80,98 +124,141 @@ const MarketDetail: React.FC = () => {
     }
   }, [isBuySuccess, buyHash, referralCode, submitReferral, id, buyOutcome, buyAmount]);
 
+  // Debug logging for claim states
+  useEffect(() => {
+    console.log('=== CLAIM STATE UPDATE ===');
+    console.log('canClaimWinnings:', canClaimWinnings);
+    console.log('hasClaimedWinnings:', hasClaimedWinnings);
+    console.log('isClaiming:', isClaiming);
+    console.log('isClaimPending:', isClaimPending);
+    console.log('isClaimConfirming:', isClaimConfirming);
+    console.log('Market ID:', id);
+    console.log('User Address:', address);
+    console.log('Market Status:', market?.status);
+    console.log('Market Outcome:', market?.outcome);
+    console.log('=== END CLAIM STATE UPDATE ===');
+  }, [canClaimWinnings, hasClaimedWinnings, isClaiming, isClaimPending, isClaimConfirming, id, address, market]);
+
   // Check if user can claim winnings when market is resolved
   useEffect(() => {
-    const checkClaimEligibility = async () => {
-      if (!market || market.status !== 1 || !address || !id || !publicClient) return;
+    const checkClaimEligibility = () => {
+      console.log('=== CLAIM ELIGIBILITY CHECK START ===');
+      console.log('Market:', market);
+      console.log('Address:', address);
+      console.log('Market ID:', id);
+      console.log('All Logs Length:', allLogs?.length || 0);
+      
+      // Reset states first
+      setCanClaimWinnings(false);
+      setHasClaimedWinnings(false);
+      
+      if (!market || market.status !== 1 || !address || !id) {
+        console.log('Early return: Missing required data');
+        return;
+      }
+      
+      if (!allLogs || allLogs.length === 0) {
+        console.log('Early return: No logs available');
+        return;
+      }
       
       try {
-        console.log('Checking claim eligibility for market:', id);
+        console.log('Checking claim eligibility for market:', id, 'user:', address);
         
-        // Get all SharesBought events for this market and user
-        const sharesEvents = await publicClient.getLogs({
-          address: '0x0C49604c65588858DC206AAC6EFEc0F8Afe2d1d6',
-          event: {
-            type: 'event',
-            name: 'SharesBought',
-            inputs: [
-              { type: 'uint256', name: 'marketId', indexed: true },
-              { type: 'address', name: 'buyer', indexed: true },
-              { type: 'bool', name: 'isYesShares', indexed: false },
-              { type: 'uint256', name: 'amount', indexed: false }
-            ]
-          },
-          args: {
-            marketId: BigInt(id),
-            buyer: address
-          },
-          fromBlock: 'earliest',
-          toBlock: 'latest'
+        // Get user's SharesBought events for this market from logs
+        const userSharesLogs = allLogs.filter(log => {
+          const isCorrectMarket = log.args.marketId?.toString() === id;
+          const isSharesBought = log.eventName === 'SharesBought';
+          const isCorrectBuyer = log.args.buyer === address;
+          
+          console.log('Log check:', {
+            logId: log.transactionHash,
+            marketId: log.args.marketId?.toString(),
+            expectedMarketId: id,
+            eventName: log.eventName,
+            buyer: log.args.buyer,
+            expectedBuyer: address,
+            isCorrectMarket,
+            isSharesBought,
+            isCorrectBuyer
+          });
+          
+          return isCorrectMarket && isSharesBought && isCorrectBuyer;
         });
         
-        console.log('Found SharesBought events:', sharesEvents);
+        console.log('Found user SharesBought events from logs:', userSharesLogs);
         
         // Check if user has winning shares
         let hasWinningShares = false;
-        sharesEvents.forEach((event: any) => {
-          if (event.args && event.args.isYesShares !== undefined && event.args.amount) {
-            const isYesShares = event.args.isYesShares;
-            const marketOutcome = market.outcome;
-            
-            // User wins if they bought YES shares and market resolved YES, or NO shares and market resolved NO
-            if ((isYesShares && marketOutcome) || (!isYesShares && !marketOutcome)) {
-              hasWinningShares = true;
-            }
+        let totalWinningAmount = 0n;
+        
+        userSharesLogs.forEach(log => {
+          const side = log.args.side; // true for Yes, false for No
+          const marketOutcome = market.outcome;
+          
+          console.log('Share analysis:', {
+            side,
+            amount: BigInt(log.args.amount || 0).toString(),
+            marketOutcome,
+            isWinning: (side && marketOutcome) || (!side && !marketOutcome)
+          });
+          
+          // User wins if they bought YES shares and market resolved YES, or NO shares and market resolved NO
+          if ((side && marketOutcome) || (!side && !marketOutcome)) {
+            hasWinningShares = true;
+            totalWinningAmount += BigInt(log.args.amount || 0);
           }
         });
         
-        // Check if user has already claimed winnings
-        // Use the claims contract address, not the core contract
-        const claimedEvents = await publicClient.getLogs({
-          address: '0x95B70dD47553f727638257b2A20D63c15b450A4A', // Celo Mainnet Claims contract address
-          event: {
-            type: 'event',
-            name: 'WinningsClaimed',
-            inputs: [
-              { type: 'uint256', name: 'marketId', indexed: true },
-              { type: 'address', name: 'user', indexed: true },
-              { type: 'uint256', name: 'amount', indexed: false }
-            ]
-          },
-          args: {
-            marketId: BigInt(id),
-            user: address
-          },
-          fromBlock: 'earliest',
-          toBlock: 'latest'
+        // Check if user has already claimed winnings from logs - more comprehensive check
+        const userClaimLogs = allLogs.filter(log => {
+          const isCorrectMarket = log.args.marketId?.toString() === id;
+          const isWinningsClaimed = log.eventName === 'WinningsClaimed';
+          const isCorrectClaimant = log.args.claimant === address;
+          
+          console.log('Claim log check:', {
+            logId: log.transactionHash,
+            marketId: log.args.marketId?.toString(),
+            expectedMarketId: id,
+            eventName: log.eventName,
+            claimant: log.args.claimant,
+            expectedClaimant: address,
+            isCorrectMarket,
+            isWinningsClaimed,
+            isCorrectClaimant
+          });
+          
+          return isCorrectMarket && isWinningsClaimed && isCorrectClaimant;
         });
         
-        console.log('Found WinningsClaimed events:', claimedEvents);
+        // Also check for any WinningsClaimed events for this market and user from both networks
+        const allUserClaims = allLogs.filter(log => {
+          return log.eventName === 'WinningsClaimed' && 
+                 log.args.claimant === address &&
+                 log.args.marketId?.toString() === id;
+        });
         
-        const hasClaimed = claimedEvents.length > 0;
-        console.log('User has claimed winnings:', hasClaimed);
+        console.log('Found user WinningsClaimed events from logs:', userClaimLogs);
+        console.log('Found all user claims for this market:', allUserClaims);
+        
+        const hasClaimed = userClaimLogs.length > 0 || allUserClaims.length > 0;
         
         // Additional debugging
         console.log('Claim eligibility check result:', {
           marketId: id,
           userAddress: address,
           hasWinningShares,
+          totalWinningAmount: totalWinningAmount.toString(),
           hasClaimed,
+          userClaimLogsCount: userClaimLogs.length,
+          allUserClaimsCount: allUserClaims.length,
           canClaim: hasWinningShares && !hasClaimed
         });
         
-        // Also check if user has already claimed using the smart contract function as backup
-        try {
-          if (hasWinningShares && !hasClaimed) {
-            console.log('Double-checking claim status with smart contract...');
-            // This would be a good place to add a backup check using the contract's hasClaimed function
-          }
-        } catch (error) {
-          console.warn('Backup claim check failed:', error);
-        }
-        
         setCanClaimWinnings(hasWinningShares && !hasClaimed);
         setHasClaimedWinnings(hasClaimed);
+        
+        console.log('=== CLAIM ELIGIBILITY CHECK END ===');
         
       } catch (error) {
         console.error('Error checking claim eligibility:', error);
@@ -181,7 +268,7 @@ const MarketDetail: React.FC = () => {
     };
     
     checkClaimEligibility();
-  }, [market, address, id, publicClient]);
+  }, [market, address, id, allLogs]);
 
   // Handle buy shares success
   useEffect(() => {
@@ -191,6 +278,11 @@ const MarketDetail: React.FC = () => {
       setBuyAmount('');
       setBuyOutcome(null);
       
+      // Refresh logs to include the new transaction (with delay to ensure transaction is processed)
+      setTimeout(() => {
+        fetchAllLogs();
+      }, 2000);
+      
       // Trigger haptic feedback for Mini App users
       if (isMiniApp) {
         triggerHaptic('medium');
@@ -199,16 +291,64 @@ const MarketDetail: React.FC = () => {
       // Refresh market data
       window.location.reload();
     }
-  }, [isBuySuccess, buyHash, notifyTransactionSuccess, isMiniApp, triggerHaptic]);
+  }, [isBuySuccess, buyHash, notifyTransactionSuccess, isMiniApp, triggerHaptic, fetchAllLogs]);
 
   // Handle claim winnings success
   useEffect(() => {
     if (isClaimSuccess && claimHash) {
       notifyTransactionSuccess('Winnings claimed successfully!', claimHash);
       setIsClaiming(false);
-      // Update UI to show claimed state
+      // Update UI to show claimed state immediately
       setCanClaimWinnings(false);
       setHasClaimedWinnings(true);
+      
+      // Refresh logs to include the new claim transaction (with delay to ensure transaction is processed)
+      setTimeout(() => {
+        fetchAllLogs();
+        // Re-check claim eligibility after logs are refreshed
+        setTimeout(() => {
+          const checkClaimEligibility = () => {
+            if (!market || market.status !== 1 || !address || !id || !allLogs) return;
+            
+            try {
+              // Get user's SharesBought events for this market from logs
+              const userSharesLogs = allLogs.filter(log => {
+                return log.args.marketId?.toString() === id && 
+                       log.eventName === 'SharesBought' && 
+                       log.args.buyer === address;
+              });
+              
+              // Check if user has winning shares
+              let hasWinningShares = false;
+              userSharesLogs.forEach(log => {
+                const side = log.args.side;
+                const marketOutcome = market.outcome;
+                
+                if ((side && marketOutcome) || (!side && !marketOutcome)) {
+                  hasWinningShares = true;
+                }
+              });
+              
+              // Check if user has already claimed winnings from logs
+              const userClaimLogs = allLogs.filter(log => {
+                return log.args.marketId?.toString() === id && 
+                       log.eventName === 'WinningsClaimed' && 
+                       log.args.claimant === address;
+              });
+              
+              const hasClaimed = userClaimLogs.length > 0;
+              
+              setCanClaimWinnings(hasWinningShares && !hasClaimed);
+              setHasClaimedWinnings(hasClaimed);
+              
+            } catch (error) {
+              console.error('Error re-checking claim eligibility:', error);
+            }
+          };
+          
+          checkClaimEligibility();
+        }, 1000);
+      }, 2000);
       
       // Submit referral if user was referred
       if (referralCode) {
@@ -228,7 +368,7 @@ const MarketDetail: React.FC = () => {
         );
       }
     }
-  }, [isClaimSuccess, claimHash, notifyTransactionSuccess, isMiniApp, market, id, composeCast, triggerNotificationHaptic, referralCode, submitReferral]);
+  }, [isClaimSuccess, claimHash, notifyTransactionSuccess, isMiniApp, market, id, composeCast, triggerNotificationHaptic, referralCode, submitReferral, fetchAllLogs, allLogs, address]);
 
   // Handle claim winnings error
   useEffect(() => {
@@ -320,26 +460,45 @@ const MarketDetail: React.FC = () => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  // Check if current user has participated in this market
+  // Check if current user has participated in this market using logs data
   const hasUserParticipated = () => {
-    if (!address || !market) return false;
+    if (!address || !id || !allLogs) return false;
     
-    // Debug logging
-    console.log('hasUserParticipated check:', {
-      address,
-      marketId: market?.id,
-      hasShares,
-      userShares,
-      yesShares: userShares.yesShares,
-      noShares: userShares.noShares
+    // Check if user has any SharesBought events for this market
+    const userMarketLogs = allLogs.filter(log => {
+      return log.args.marketId?.toString() === id && 
+             log.eventName === 'SharesBought' && 
+             log.args.buyer === address;
     });
     
-    // Use the hasShares from the hook
-    return hasShares;
+    return userMarketLogs.length > 0;
   };
 
+  // Get user shares from logs data
   const getUserShares = () => {
-    return userShares;
+    if (!address || !id || !allLogs) {
+      return { yesShares: 0n, noShares: 0n };
+    }
+    
+    const userMarketLogs = allLogs.filter(log => {
+      return log.args.marketId?.toString() === id && 
+             log.eventName === 'SharesBought' && 
+             log.args.buyer === address;
+    });
+    
+    let yesShares = 0n;
+    let noShares = 0n;
+    
+    userMarketLogs.forEach(log => {
+      const amount = BigInt(log.args.amount || 0);
+      if (log.args.side) {
+        yesShares += amount;
+      } else {
+        noShares += amount;
+      }
+    });
+    
+    return { yesShares, noShares };
   };
 
   // Real claim function that calls the smart contract
@@ -560,32 +719,20 @@ const MarketDetail: React.FC = () => {
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Market Participants</h3>
           <div className="text-sm text-gray-500">
-            {participantsLoading ? 'Loading...' : `${totalParticipants} participants`}
+            {logsLoading ? 'Loading...' : `${totalParticipants} participants`}
           </div>
         </div>
 
-        {participantsLoading ? (
+        {logsLoading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading participants...</p>
           </div>
-        ) : participantsError ? (
-          <div className="text-center py-8">
-            <div className="text-red-400 text-4xl mb-4">⚠️</div>
-            <h4 className="text-lg font-medium text-gray-900 mb-2">Failed to Load Participants</h4>
-            <p className="text-gray-600 mb-4">{participantsError}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        ) : participants.length > 0 ? (
+        ) : marketParticipants.length > 0 ? (
           <div className="space-y-4">
             {/* Participants List */}
             <div className="max-h-96 overflow-y-auto">
-              {participants.map((participant, index) => (
+                            {marketParticipants.map((participant, index) => (
                 <div 
                   key={participant.address} 
                   className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
@@ -611,7 +758,7 @@ const MarketDetail: React.FC = () => {
                       ${(Number(formatEther(participant.totalInvestment)) * CELO_PRICE_USD).toFixed(2)}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {formatEther(participant.totalInvestment)} CELO • {participant.investmentPercentage.toFixed(2)}% of pool
+                      {formatEther(participant.totalInvestment)} CELO
                     </div>
                   </div>
 
@@ -640,6 +787,8 @@ const MarketDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+     
 
       {/* Trading Section */}
       {market.status === 0 && !market.isEnded && (
@@ -692,6 +841,18 @@ const MarketDetail: React.FC = () => {
                       ${(formatGwei(BigInt(getUserShares().yesShares + getUserShares().noShares)) as any * CELO_PRICE_USD).toFixed(4)}
                     </span>
                   </div> */}
+                </div>
+              </div>
+              
+              {/* Message about participation */}
+              <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+                <div className="flex items-center">
+                  <div className="text-yellow-600 mr-2">ℹ️</div>
+                  <div className="text-sm text-yellow-800">
+                    <strong>You have already participated in this market.</strong> 
+                    <br />
+                    Your shares are locked until the market resolves. You cannot buy additional shares.
+                  </div>
                 </div>
               </div>
             </div>
@@ -757,6 +918,7 @@ const MarketDetail: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Winnings</h3>
           
+          {/* Safety check - if user has claimed, show claimed state regardless of other conditions */}
           {hasClaimedWinnings ? (
             // User has already claimed
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -769,8 +931,9 @@ const MarketDetail: React.FC = () => {
                   </p>
                 </div>
               </div>
+              
             </div>
-          ) : canClaimWinnings ? (
+          ) : (canClaimWinnings && !hasClaimedWinnings) ? (
             // User can claim
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center space-x-3 mb-4">
@@ -785,7 +948,7 @@ const MarketDetail: React.FC = () => {
               
               <button
                 onClick={handleClaimWinnings}
-                disabled={isClaiming || isClaimPending || isClaimConfirming}
+                disabled={isClaiming || isClaimPending || isClaimConfirming || hasClaimedWinnings}
                 className="w-full bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
               >
                 {isClaiming || isClaimPending ? (
@@ -798,21 +961,43 @@ const MarketDetail: React.FC = () => {
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                     Processing...
                   </div>
+                ) : hasClaimedWinnings ? (
+                  'Already Claimed'
                 ) : (
                   'Claim Winnings'
                 )}
               </button>
             </div>
           ) : (
-            // User has no winning shares
+            // User has no winning shares or edge case
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <div className="flex items-center space-x-3">
                 <span className="text-gray-500 text-2xl">😔</span>
                 <div>
-                  <h4 className="font-medium text-gray-900">No Winnings</h4>
+                  <h4 className="font-medium text-gray-900">
+                    {hasClaimedWinnings ? 'Winnings Already Claimed' : 'No Winnings'}
+                  </h4>
                   <p className="text-sm text-gray-600">
-                    You don't have winning shares in this market.
+                    {hasClaimedWinnings 
+                      ? 'You have already claimed your winnings for this market.'
+                      : 'You don\'t have winning shares in this market.'
+                    }
                   </p>
+                </div>
+              </div>
+              
+              {/* Debug information */}
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                <div className="font-medium text-yellow-800 mb-2">Debug Info:</div>
+                <div className="space-y-1 text-yellow-700">
+                  <div>Market Outcome: {market.outcome ? 'Yes' : 'No'}</div>
+                  <div>Your YES Shares: {formatEther(getUserShares().yesShares)}</div>
+                  <div>Your NO Shares: {formatEther(getUserShares().noShares)}</div>
+                  <div>Can Claim: {canClaimWinnings ? 'Yes' : 'No'}</div>
+                  <div>Has Claimed: {hasClaimedWinnings ? 'Yes' : 'No'}</div>
+                  <div>Market Status: {market.status}</div>
+                  <div>Claim Button Disabled: {(isClaiming || isClaimPending || isClaimConfirming || hasClaimedWinnings) ? 'Yes' : 'No'}</div>
+                  <div>Condition: canClaimWinnings && !hasClaimedWinnings = {(canClaimWinnings && !hasClaimedWinnings) ? 'True' : 'False'}</div>
                 </div>
               </div>
             </div>

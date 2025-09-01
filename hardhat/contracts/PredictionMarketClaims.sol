@@ -113,23 +113,73 @@ contract PredictionMarketClaims is Ownable, ReentrancyGuard {
         
         if (userShares == 0) return 0;
         
-        // Calculate total winning shares for this outcome
+        // Calculate total winning and losing shares for this outcome
         uint256 winningShares = 0;
+        uint256 losingShares = 0;
+        
         if (market.outcome) {
-            // Market resolved as YES, so count all YES shares
+            // Market resolved as YES
             winningShares = market.totalYes;
+            losingShares = market.totalNo;
         } else {
-            // Market resolved as NO, so count all NO shares
+            // Market resolved as NO
             winningShares = market.totalNo;
+            losingShares = market.totalYes;
         }
         
-        if (winningShares == 0) return 0;
+        // Calculate winnings based on scenario
+        if (losingShares > 0) {
+            // Normal case: distribute losing shares among winners
+            uint256 totalWinnerAmount = (market.totalPool * 70) / 100;
+            uint256 userWinnings = (totalWinnerAmount * userShares) / winningShares;
+            return userWinnings;
+        } else {
+            // Special case: no losing shares, winners get 100% of their stake back
+            return userShares;
+        }
+    }
+    
+    function getWinningsBreakdown(uint256 marketId, address user) external view returns (
+        uint256 userShares,
+        uint256 totalWinningShares,
+        uint256 totalLosingShares,
+        uint256 userWinnings,
+        bool hasLosingShares
+    ) {
+        PredictionMarketCore.Market memory market = coreContract.getMarketData(marketId);
+        require(market.status == PredictionMarketCore.MarketStatus.RESOLVED, "Market not yet resolved");
         
-        // Calculate winnings: 70% of total pool goes to winners, distributed proportionally
-        uint256 totalWinnerAmount = (market.totalPool * 70) / 100;
-        uint256 userWinnings = (totalWinnerAmount * userShares) / winningShares;
+        // Get user participation data
+        (bool participated, bool side, uint256 yesShares, uint256 noShares) = coreContract.getUserParticipation(marketId, user);
+        if (!participated) return (0, 0, 0, 0, false);
         
-        return userWinnings;
+        // Determine user's shares
+        if (side == market.outcome) {
+            userShares = side ? yesShares : noShares;
+        } else {
+            return (0, 0, 0, 0, false);
+        }
+        
+        // Calculate total shares
+        if (market.outcome) {
+            totalWinningShares = market.totalYes;
+            totalLosingShares = market.totalNo;
+        } else {
+            totalWinningShares = market.totalNo;
+            totalLosingShares = market.totalYes;
+        }
+        
+        hasLosingShares = totalLosingShares > 0;
+        
+        // Calculate winnings
+        if (hasLosingShares) {
+            uint256 totalWinnerAmount = (market.totalPool * 70) / 100;
+            userWinnings = (totalWinnerAmount * userShares) / totalWinningShares;
+        } else {
+            userWinnings = userShares; // 100% of their stake back
+        }
+        
+        return (userShares, totalWinningShares, totalLosingShares, userWinnings, hasLosingShares);
     }
     
     function claimWinnings(uint256 marketId) external nonReentrant {

@@ -71,9 +71,16 @@ const ConnectWallet: React.FC = () => {
       <button
         onClick={handleConnect}
         disabled={isPending}
-        className="btn-primary"
+        className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors font-medium"
       >
-        {isPending ? 'Connecting...' : isMiniApp ? 'Connect Farcaster Wallet' : 'Connect Wallet'}
+        {isPending ? (
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+            Connecting...
+          </div>
+        ) : (
+          isMiniApp ? 'Connect Farcaster Wallet' : 'Connect Wallet'
+        )}
       </button>
     </div>
   );

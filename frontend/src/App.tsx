@@ -4,7 +4,7 @@ import { WagmiProvider } from 'wagmi';
 import { config } from './config/wagmi';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ReferralProvider } from './contexts/ReferralContext';
-import { useMiniApp } from './hooks/useMiniApp';
+import { useInitializeEvents } from './hooks/useInitializeEvents';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -14,12 +14,14 @@ import CreateMarket from './pages/CreateMarket';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 
+
 // Initialize Farcaster SDK
 const queryClient = new QueryClient();
 
 function App() {
-  // Initialize Mini App functionality
-  useMiniApp();
+  
+  // Initialize events store and fetch data
+  useInitializeEvents();
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -42,6 +44,7 @@ function App() {
                   </div>
                 </main>
                 <Footer />
+                {/* <GlobalActivityFeed /> */}
               </div>
             </Router>
           </ReferralProvider>

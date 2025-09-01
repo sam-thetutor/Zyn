@@ -58,15 +58,19 @@ const Header: React.FC = () => {
                 >
                   Markets
                 </Link>
-                <Link 
-                  to="/create-market" 
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
-                >
-                  Create Market
-                </Link>
-                <Link to="/profile" className="text-gray-700 hover:text-blue-600 transition-colors">
-                  Profile
-                </Link>
+                {isConnected && (
+                  <>
+                    <Link 
+                      to="/create-market" 
+                      className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+                    >
+                      Create Market
+                    </Link>
+                    <Link to="/profile" className="text-gray-700 hover:text-blue-600 transition-colors">
+                      Profile
+                    </Link>
+                  </>
+                )}
                 {isAdmin && (
                   <Link 
                     to="/admin" 
@@ -81,13 +85,7 @@ const Header: React.FC = () => {
               <div className="hidden md:flex items-center">
                 {isConnected ? (
                   <div className="flex items-center space-x-3">
-                    {/* Referral Indicator */}
-                    {referralCode && (
-                      <div className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                        <span>🎉</span>
-                        <span>Referred by {referralAddress?.slice(0, 6)}...</span>
-                      </div>
-                    )}
+                   
                     
                     <span className="text-sm text-gray-600">
                       {formatAddress(address!)}
@@ -170,28 +168,32 @@ const Header: React.FC = () => {
                 >
                   Markets
                 </Link>
-                <Link
-                  to="/create-market"
-                  onClick={closeMobileMenu}
-                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                    isActiveLink('/create-market')
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  Create Market
-                </Link>
-                <Link
-                  to="/profile"
-                  onClick={closeMobileMenu}
-                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                    isActiveLink('/profile')
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  Profile
-                </Link>
+                {isConnected && (
+                  <>
+                    <Link
+                      to="/create-market"
+                      onClick={closeMobileMenu}
+                      className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                        isActiveLink('/create-market')
+                          ? 'text-blue-600 bg-blue-50'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      Create Market
+                    </Link>
+                    <Link
+                      to="/profile"
+                      onClick={closeMobileMenu}
+                      className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                        isActiveLink('/profile')
+                          ? 'text-blue-600 bg-blue-50'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      Profile
+                    </Link>
+                  </>
+                )}
                 {isAdmin && (
                   <Link
                     to="/admin"
