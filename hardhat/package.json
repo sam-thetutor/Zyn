@@ -1,0 +1,56 @@
+{
+  "name": "prediction-markets-base",
+  "version": "1.0.0",
+  "description": "Prediction Markets Smart Contract for Base Blockchain",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:base": "hardhat run scripts/deploy.js --network base",
+    "deploy:base-sepolia": "hardhat run scripts/deploy.js --network base-sepolia",
+    "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
+    "deploy:celo": "hardhat run scripts/deploy-mainnet.js --network celo",
+    "deploy:celo-testnet": "hardhat run scripts/deploy-two-contracts.js --network celo-alfajores",
+    "verify:celo": "hardhat run scripts/verify-mainnet.js --network celo",
+    "node": "hardhat node",
+    "clean": "hardhat clean",
+    "verify": "hardhat verify",
+    "coverage": "hardhat coverage",
+    "gas-report": "REPORT_GAS=true hardhat test"
+  },
+  "keywords": [
+    "blockchain",
+    "solidity",
+    "hardhat",
+    "prediction-markets",
+    "base",
+    "ethereum",
+    "defi"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.2",
+    "@nomicfoundation/hardhat-ethers": "^3.0.4",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.1",
+    "@typechain/ethers-v6": "^0.5.0",
+    "@typechain/hardhat": "^9.1.0",
+    "@types/chai": "^4.3.5",
+    "@types/mocha": "^10.0.1",
+    "chai": "^4.3.7",
+    "ethers": "^6.8.1",
+    "hardhat": "^2.19.0",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.5",
+    "typechain": "^8.3.1"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

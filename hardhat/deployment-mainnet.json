@@ -1,0 +1,11 @@
+{
+  "network": "celo-mainnet",
+  "chainId": 42220,
+  "timestamp": "2025-08-30T18:43:14.693Z",
+  "coreContract": "0x0C49604c65588858DC206AAC6EFEc0F8Afe2d1d6",
+  "claimsContract": "0x95B70dD47553f727638257b2A20D63c15b450A4A",
+  "deployer": "0x21D654daaB0fe1be0e584980ca7C1a382850939f",
+  "marketCreationFee": "1 CELO",
+  "rpcUrl": "https://forno.celo.org",
+  "explorerUrl": "https://celoscan.io"
+}

@@ -1,0 +1,28 @@
+{
+  "miniapp": {
+    "version": "1",
+    "name": "Zyn",
+    "iconUrl": "https://zynp.vercel.app/logo.png",
+    "homeUrl": "https://zynp.vercel.app/",
+    "imageUrl": "https://zynp.vercel.app/logo.png",
+    "buttonTitle": "🏆 Zyn",
+    "splashImageUrl": "https://zynp.vercel.app/logo.png",
+    "splashBackgroundColor": "#1a1a1a",
+    "description": "Create and trade on prediction markets with real-time outcomes",
+    "primaryCategory": "finance",
+    "tags": [
+      "prediction-markets",
+      "trading",
+      "defi",
+      "gambling"
+    ],
+    "ogTitle": "Zyn",
+    "ogDescription": "Create and trade on prediction markets with real-time outcomes",
+    "ogImageUrl": "https://zynp.vercel.app/logo.png"
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEwNzg0MTcsInR5cGUiOiJhdXRoIiwia2V5IjoiMHhkMGYzNzhkMzBDNUM5MjAzNDI0NjZkRmFDNzM1MTczMzhjMDI0OTZGIn0",
+    "payload": "eyJkb21haW4iOiJ6eW5wLnZlcmNlbC5hcHAifQ",
+    "signature": "EdVnUA21YsqQJF08sNmdedPw1d8ApNUhG0hWeBBr4v5W9dS4Zi6ufVRnh4fA21GiLo81betMG6C1BhcoDQHdIhs="
+  }
+}
