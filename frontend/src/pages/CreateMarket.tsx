@@ -82,7 +82,7 @@ const CreateMarket: React.FC = () => {
       // Refresh logs to include the new market (with delay to ensure transaction is processed)
       setTimeout(() => {
         fetchAllLogs();
-      }, 2000);
+      }, 5000);
       
       // Submit referral if user was referred
       if (referralCode) {
@@ -173,9 +173,9 @@ const CreateMarket: React.FC = () => {
     }
 
     // Check if user has sufficient balance
-    const marketCreationFee = parseEther('1'); // 1 CELO
+    const marketCreationFee = parseEther('0.01'); // 0.01 CELO
     if (balance && balance.value < marketCreationFee) {
-      notifyValidationError(`Insufficient balance. You need at least 1 CELO to create a market. Current balance: ${formatEther(balance.value)} CELO`);
+      notifyValidationError(`Insufficient balance. You need at least 0.01 CELO to create a market. Current balance: ${formatEther(balance.value)} CELO`);
       return;
     }
 
@@ -200,7 +200,7 @@ const CreateMarket: React.FC = () => {
         formData.image || 'https://picsum.photos/400/300?random=1',
         sourceLinks, // source
         BigInt(endTimestamp),
-        parseEther('1') //  1 CELO value - market creation fee
+        parseEther('0.01') //  0.01 CELO value - market creation fee
       );
 
       //wait for 4 seconds and redirect to markets page
@@ -222,7 +222,7 @@ const CreateMarket: React.FC = () => {
         } else if (err.message.includes('Core contract not found')) {
           errorMessage = 'Network connection issue. Please check your network settings.';
         } else if (err.message.includes('Insufficient balance')) {
-          errorMessage = 'Insufficient CELO balance. You need at least 1 CELO to create a market.';
+          errorMessage = 'Insufficient CELO balance. You need at least 0.01 CELO to create a market.';
         } else if (err.message.includes('User rejected')) {
           errorMessage = 'Transaction was cancelled. Please try again if you want to create the market.';
         } else if (err.message.includes('gas')) {
@@ -273,7 +273,7 @@ const CreateMarket: React.FC = () => {
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Market Creation Fee: 1 CELO
+            Market Creation Fee: 0.01 CELO
           </div>
         </div>
 
@@ -501,13 +501,13 @@ const CreateMarket: React.FC = () => {
                 <div className="flex-1">
                   <h4 className="text-sm font-medium text-amber-800">Market Creation Fee</h4>
                   <p className="text-sm text-amber-700">
-                    Creating a prediction market costs <span className="font-semibold">1 CELO</span>. 
+                    Creating a prediction market costs <span className="font-semibold">0.01 CELO</span>. 
                     This fee helps maintain the platform and prevent spam.
                   </p>
                   {balance && (
                     <p className="text-sm text-amber-700 mt-1">
                       Your current balance: <span className="font-semibold">{formatEther(balance.value)} {balance.symbol}</span>
-                      {balance.value < parseEther('1') && (
+                      {balance.value < parseEther('0.01') && (
                         <span className="text-red-600 ml-2">⚠️ Insufficient balance</span>
                       )}
                     </p>

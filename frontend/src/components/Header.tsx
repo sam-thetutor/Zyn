@@ -56,6 +56,12 @@ const Header: React.FC = () => {
                 >
                   Markets
                 </Link>
+                <Link 
+                  to="/leaderboard" 
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+                >
+                  🏆 Leaderboard
+                </Link>
                 {isConnected && (
                   <>
                     <Link 
@@ -165,6 +171,17 @@ const Header: React.FC = () => {
                   }`}
                 >
                   Markets
+                </Link>
+                <Link
+                  to="/leaderboard"
+                  onClick={closeMobileMenu}
+                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                    isActiveLink('/leaderboard')
+                      ? 'text-blue-600 bg-blue-50'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  🏆 Leaderboard
                 </Link>
                 {isConnected && (
                   <>

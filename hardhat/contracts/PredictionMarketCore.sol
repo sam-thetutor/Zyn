@@ -5,14 +5,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./PredictionMarketClaims.sol";
 
 contract PredictionMarketCore is Ownable {
-    // Market structure
+    // Market structure (simplified to reduce stack depth)
     struct Market {
         uint256 id;
         string question;
-        string description;
-        string category;
-        string image;
-        string source;
         uint256 endTime;
         uint256 totalPool;
         uint256 totalYes;
@@ -20,6 +16,21 @@ contract PredictionMarketCore is Ownable {
         MarketStatus status;
         bool outcome;
         uint256 createdAt;
+        address creator; // Track market creator
+    }
+    
+    // Additional market data (separate to reduce stack depth)
+    struct MarketMetadata {
+        string description;
+        string category;
+        string image;
+        string source;
+    }
+    
+    // Creator fee tracking (separate to reduce stack depth)
+    struct CreatorFeeData {
+        uint256 creatorFee; // Track creator's fee
+        bool creatorFeeClaimed; // Track if creator has claimed their fee
     }
 
     enum MarketStatus { ACTIVE, RESOLVED, CANCELLED }
@@ -27,6 +38,8 @@ contract PredictionMarketCore is Ownable {
     // State variables
     uint256 public nextMarketId = 1;
     mapping(uint256 => Market) public markets;
+    mapping(uint256 => MarketMetadata) public marketMetadata; // Separate mapping for metadata
+    mapping(uint256 => CreatorFeeData) public creatorFeeData; // Separate mapping for creator fee data
     mapping(address => string) public usernames;
     mapping(string => bool) public usernameTaken;
     mapping(uint256 => mapping(address => bool)) public hasParticipated;
@@ -40,7 +53,10 @@ contract PredictionMarketCore is Ownable {
     // Constants
     uint256 public constant MINIMUM_END_TIME = 120; // 2 minutes
     uint256 public constant USERNAME_CHANGE_FEE = 0.00001 ether;
-    uint256 public constant MARKET_CREATION_FEE = 1 ether; // Market creation fee (1 CELO)
+    
+    // Configurable variables
+    uint256 public marketCreationFee = 1 ether; // Market creation fee (can be updated by admin)
+    uint256 public creatorFeePercentage = 15; // 15% creator fee (can be updated by admin)
     
     // Events
     event MarketCreated(uint256 indexed marketId, address indexed creator, string question, string description, string source, uint256 endTime, uint256 creationFee);
@@ -50,6 +66,9 @@ contract PredictionMarketCore is Ownable {
     event UsernameChanged(address indexed user, string oldUsername, string newUsername);
     event ClaimsContractSet(address indexed oldContract, address indexed newContract);
     event RewardsDisbursed(uint256 indexed marketId, address indexed claimant, uint256 amount);
+    event CreatorFeeClaimed(uint256 indexed marketId, address indexed creator, uint256 amount);
+    event CreatorFeePercentageUpdated(uint256 oldPercentage, uint256 newPercentage);
+    event MarketCreationFeeUpdated(uint256 oldFee, uint256 newFee);
     
     // Modifiers
     modifier onlyClaimsContract() {
@@ -98,24 +117,35 @@ contract PredictionMarketCore is Ownable {
     ) external payable returns (uint256) {
         require(bytes(question).length > 0, "Question cannot be empty");
         require(endTime > block.timestamp + MINIMUM_END_TIME, "End time too soon");
-        require(msg.value == MARKET_CREATION_FEE, "Must pay exact market creation fee");
+        require(msg.value == marketCreationFee, "Must pay exact market creation fee");
         
         uint256 marketId = nextMarketId++;
         
         markets[marketId] = Market({
             id: marketId,
             question: question,
-            description: description,
-            category: category,
-            image: image,
-            source: source,
             endTime: endTime,
             totalPool: 0, // Start with 0 pool - no initial liquidity
             totalYes: 0,
             totalNo: 0,
             status: MarketStatus.ACTIVE,
             outcome: false,
-            createdAt: block.timestamp
+            createdAt: block.timestamp,
+            creator: msg.sender // Track the creator
+        });
+        
+        // Store metadata separately
+        marketMetadata[marketId] = MarketMetadata({
+            description: description,
+            category: category,
+            image: image,
+            source: source
+        });
+        
+        // Initialize creator fee data
+        creatorFeeData[marketId] = CreatorFeeData({
+            creatorFee: 0, // Will be calculated when market is resolved
+            creatorFeeClaimed: false // Creator hasn't claimed yet
         });
         
         // Debug: Verify what was actually stored
@@ -125,7 +155,7 @@ contract PredictionMarketCore is Ownable {
         // Market creation fee is collected but doesn't go to any side
         // Creator can now buy shares separately like any other participant
         
-        emit MarketCreated(marketId, msg.sender, question, description, source, endTime, MARKET_CREATION_FEE);
+        emit MarketCreated(marketId, msg.sender, question, description, source, endTime, marketCreationFee);
         
         return marketId;
     }
@@ -164,6 +194,12 @@ contract PredictionMarketCore is Ownable {
         
         market.status = MarketStatus.RESOLVED;
         market.outcome = outcome;
+        
+        // Calculate creator fee (percentage of losing shares)
+        uint256 losingShares = outcome ? market.totalNo : market.totalYes;
+        if (losingShares > 0) {
+            creatorFeeData[marketId].creatorFee = (losingShares * creatorFeePercentage) / 100;
+        }
         
         // Notify Claims Contract to calculate winners
         if (claimsContract != address(0)) {
@@ -245,9 +281,21 @@ contract PredictionMarketCore is Ownable {
         return markets[marketId];
     }
     
+    function getMarketMetadata(uint256 marketId) external view returns (MarketMetadata memory) {
+        return marketMetadata[marketId];
+    }
+    
+    function getCompleteMarketData(uint256 marketId) external view returns (
+        Market memory market,
+        MarketMetadata memory metadata,
+        CreatorFeeData memory feeData
+    ) {
+        return (markets[marketId], marketMetadata[marketId], creatorFeeData[marketId]);
+    }
+    
     // Get market creation fee
-    function getMarketCreationFee() external pure returns (uint256) {
-        return MARKET_CREATION_FEE;
+    function getMarketCreationFee() external view returns (uint256) {
+        return marketCreationFee;
     }
     
     // Debug function to check end time specifically
@@ -275,6 +323,29 @@ contract PredictionMarketCore is Ownable {
         return nextMarketId - 1;
     }
     
+    function getCreatorFeeInfo(uint256 marketId) external view returns (address creator, uint256 fee, bool claimed) {
+        require(markets[marketId].id != 0, "Market does not exist");
+        Market storage market = markets[marketId];
+        CreatorFeeData storage feeData = creatorFeeData[marketId];
+        return (market.creator, feeData.creatorFee, feeData.creatorFeeClaimed);
+    }
+    
+    // Creator fee claiming
+    function claimCreatorFee(uint256 marketId) external marketExists(marketId) {
+        Market storage market = markets[marketId];
+        CreatorFeeData storage feeData = creatorFeeData[marketId];
+        require(market.creator == msg.sender, "Only market creator can claim fee");
+        require(market.status == MarketStatus.RESOLVED, "Market must be resolved");
+        require(!feeData.creatorFeeClaimed, "Creator fee already claimed");
+        require(feeData.creatorFee > 0, "No creator fee to claim");
+        require(feeData.creatorFee <= address(this).balance, "Insufficient contract balance");
+        
+        feeData.creatorFeeClaimed = true;
+        payable(market.creator).transfer(feeData.creatorFee);
+        
+        emit CreatorFeeClaimed(marketId, market.creator, feeData.creatorFee);
+    }
+    
     // Admin functions
     function withdrawFees() external onlyAdmin {
         uint256 balance = address(this).balance;
@@ -285,6 +356,26 @@ contract PredictionMarketCore is Ownable {
     
     function cancelMarket(uint256 marketId) external onlyAdmin marketExists(marketId) marketActive(marketId) {
         markets[marketId].status = MarketStatus.CANCELLED;
+    }
+    
+    function updateCreatorFeePercentage(uint256 newPercentage) external onlyAdmin {
+        require(newPercentage <= 50, "Creator fee percentage cannot exceed 50%");
+        require(newPercentage >= 0, "Creator fee percentage cannot be negative");
+        
+        uint256 oldPercentage = creatorFeePercentage;
+        creatorFeePercentage = newPercentage;
+        
+        emit CreatorFeePercentageUpdated(oldPercentage, newPercentage);
+    }
+    
+    function updateMarketCreationFee(uint256 newFee) external onlyAdmin {
+        require(newFee >= 0, "Market creation fee cannot be negative");
+        require(newFee <= 50 ether, "Market creation fee cannot exceed 50 CELO");
+        
+        uint256 oldFee = marketCreationFee;
+        marketCreationFee = newFee;
+        
+        emit MarketCreationFeeUpdated(oldFee, newFee);
     }
     
     // Emergency functions

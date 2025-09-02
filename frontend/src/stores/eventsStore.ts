@@ -32,12 +32,47 @@ export interface ContractLog {
   timestamp?: number;
 }
 
+// User activity tracking for leaderboard
+export interface UserActivity {
+  address: string;
+  type: 'invest' | 'win' | 'lose' | 'create_market' | 'claim_winnings';
+  amount: bigint;
+  marketId: string;
+  timestamp: number;
+  transactionHash: string;
+  side?: boolean; // For investments: true = yes, false = no
+  outcome?: boolean; // For market resolution: true = yes won, false = no won
+}
+
+// User leaderboard stats
+export interface UserLeaderboardStats {
+  address: string;
+  username?: string;
+  totalPnL: bigint;           // Net profit/loss in wei
+  totalInvested: bigint;      // Total amount invested
+  totalWinnings: bigint;      // Total winnings claimed
+  winRate: number;           // Percentage (0-100)
+  totalMarkets: number;      // Markets participated in
+  winningMarkets: number;    // Markets won
+  currentStreak: number;     // Current streak (positive = winning, negative = losing)
+  bestStreak: number;        // Best winning streak
+  totalVolume: bigint;       // Total trading volume
+  riskAdjustedReturn: number; // PnL / Volume ratio
+  rank: number;              // Current leaderboard position
+  lastActivity: number;      // Timestamp of last activity
+  activities: UserActivity[]; // All user activities
+}
+
 interface EventsStore {
   // State
   logs: ContractLog[];
   loading: boolean;
   error: string | null;
   lastFetched: number | null;
+  userActivities: UserActivity[];
+  leaderboardStats: UserLeaderboardStats[];
+  lastProcessedTimestamp: number | null;
+  lastLeaderboardTimestamp: number | null;
   
   // Actions
   fetchAllLogs: () => Promise<ContractLog[]>;
@@ -46,6 +81,16 @@ interface EventsStore {
   setError: (error: string | null) => void;
   clearError: () => void;
   reset: () => void;
+  
+  // User activity tracking
+  processUserActivities: () => void;
+  getUserActivities: (userAddress: string) => UserActivity[];
+  calculateUserStats: (userAddress: string) => UserLeaderboardStats;
+  
+  // Leaderboard functions
+  generateLeaderboard: (timeframe?: 'daily' | 'weekly' | 'monthly' | 'all') => UserLeaderboardStats[];
+  getUserRank: (userAddress: string) => number;
+  getTopUsers: (count?: number) => UserLeaderboardStats[];
   
   // Computed values
   getLogsByEvent: (eventName: string) => ContractLog[];
@@ -147,6 +192,10 @@ export const useEventsStore = create<EventsStore>((set, get) => ({
   loading: false,
   error: null,
   lastFetched: null,
+  userActivities: [],
+  leaderboardStats: [],
+  lastProcessedTimestamp: null,
+  lastLeaderboardTimestamp: null,
   
   // Actions
   fetchAllLogs: async () => {
@@ -312,5 +361,298 @@ export const useEventsStore = create<EventsStore>((set, get) => ({
 
   get baseLogs() {
     return get().getLogsByNetwork('BASE_MAINNET');
+  },
+
+  // User activity tracking functions
+  processUserActivities: () => {
+    const { logs, lastProcessedTimestamp } = get();
+    
+    // Skip processing if we already processed these logs recently
+    if (lastProcessedTimestamp && logs.length > 0) {
+      const latestLogTimestamp = Math.max(...logs.map(log => log.timestamp || 0));
+      if (latestLogTimestamp <= lastProcessedTimestamp) {
+        console.log('📊 User activities already processed, skipping...');
+        return;
+      }
+    }
+    
+    const activities: UserActivity[] = [];
+
+    logs.forEach(log => {
+      const args = log.args || {};
+      const timestamp = log.timestamp || Date.now();
+
+      switch (log.eventName) {
+        case 'MarketCreated':
+          if (args.creator) {
+            activities.push({
+              address: args.creator.toLowerCase(),
+              type: 'create_market',
+              amount: BigInt(args.creationFee || 0),
+              marketId: args.marketId?.toString() || '',
+              timestamp,
+              transactionHash: log.transactionHash,
+            });
+          }
+          break;
+
+        case 'SharesBought':
+          if (args.buyer) {
+            activities.push({
+              address: args.buyer.toLowerCase(),
+              type: 'invest',
+              amount: BigInt(args.amount || 0),
+              marketId: args.marketId?.toString() || '',
+              timestamp,
+              transactionHash: log.transactionHash,
+              side: args.side,
+            });
+          }
+          break;
+
+        case 'WinningsClaimed':
+          if (args.claimant) {
+            activities.push({
+              address: args.claimant.toLowerCase(),
+              type: 'claim_winnings',
+              amount: BigInt(args.amount || 0),
+              marketId: args.marketId?.toString() || '',
+              timestamp,
+              transactionHash: log.transactionHash,
+            });
+          }
+          break;
+
+        case 'MarketResolved':
+          // This will be used to determine win/lose for previous investments
+          if (args.resolver) {
+            activities.push({
+              address: args.resolver.toLowerCase(),
+              type: 'win', // Market resolver gets a win
+              amount: 0n,
+              marketId: args.marketId?.toString() || '',
+              timestamp,
+              transactionHash: log.transactionHash,
+              outcome: args.outcome,
+            });
+          }
+          break;
+      }
+    });
+
+    // Sort by timestamp
+    activities.sort((a, b) => a.timestamp - b.timestamp);
+    
+    const latestTimestamp = activities.length > 0 ? Math.max(...activities.map(a => a.timestamp)) : Date.now();
+    
+    set({ 
+      userActivities: activities,
+      lastProcessedTimestamp: latestTimestamp
+    });
+    console.log(`📊 Processed ${activities.length} user activities`);
+  },
+
+  getUserActivities: (userAddress: string) => {
+    const { userActivities } = get();
+    if (!userAddress) return [];
+    
+    return userActivities.filter(activity => 
+      activity.address.toLowerCase() === userAddress.toLowerCase()
+    );
+  },
+
+  calculateUserStats: (userAddress: string) => {
+    if (!userAddress) {
+      return {
+        address: '',
+        totalPnL: 0n,
+        totalInvested: 0n,
+        totalWinnings: 0n,
+        winRate: 0,
+        totalMarkets: 0,
+        winningMarkets: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        totalVolume: 0n,
+        riskAdjustedReturn: 0,
+        rank: 0,
+        lastActivity: 0,
+        activities: [],
+      };
+    }
+
+    const userActivities = get().getUserActivities(userAddress);
+    
+    // Calculate basic stats
+    let totalInvested = 0n;
+    let totalWinnings = 0n;
+    let totalVolume = 0n;
+    let totalMarkets = 0;
+    let winningMarkets = 0;
+    let lastActivity = 0;
+
+    // Track market outcomes for win rate calculation
+    const marketOutcomes = new Map<string, { invested: bigint; won: boolean; amount: bigint }>();
+
+    userActivities.forEach(activity => {
+      lastActivity = Math.max(lastActivity, activity.timestamp);
+
+      switch (activity.type) {
+        case 'invest':
+          totalInvested += activity.amount;
+          totalVolume += activity.amount;
+          
+          const marketId = activity.marketId;
+          if (!marketOutcomes.has(marketId)) {
+            marketOutcomes.set(marketId, { invested: 0n, won: false, amount: 0n });
+            totalMarkets++;
+          }
+          
+          const marketData = marketOutcomes.get(marketId)!;
+          marketData.invested += activity.amount;
+          break;
+
+        case 'claim_winnings':
+          totalWinnings += activity.amount;
+          const marketData2 = marketOutcomes.get(activity.marketId);
+          if (marketData2) {
+            marketData2.won = true;
+            marketData2.amount = activity.amount;
+          }
+          break;
+
+        case 'create_market':
+          totalVolume += activity.amount;
+          break;
+      }
+    });
+
+    // Calculate win rate
+    marketOutcomes.forEach((data) => {
+      if (data.invested > 0n && data.won) {
+        winningMarkets++;
+      }
+    });
+
+    const winRate = totalMarkets > 0 ? (winningMarkets / totalMarkets) * 100 : 0;
+    const totalPnL = totalWinnings - totalInvested;
+    const riskAdjustedReturn = totalVolume > 0n ? Number(totalPnL) / Number(totalVolume) : 0;
+
+    // Calculate streaks (simplified - would need more complex logic for accurate streaks)
+    let currentStreak = 0;
+    let bestStreak = 0;
+    let tempStreak = 0;
+
+    // Sort activities by timestamp and calculate streaks
+    const sortedActivities = [...userActivities].sort((a, b) => a.timestamp - b.timestamp);
+    
+    sortedActivities.forEach(activity => {
+      if (activity.type === 'claim_winnings') {
+        tempStreak++;
+        bestStreak = Math.max(bestStreak, tempStreak);
+      } else if (activity.type === 'invest') {
+        // Reset streak on new investment (simplified logic)
+        if (tempStreak > 0) {
+          currentStreak = tempStreak;
+          tempStreak = 0;
+        }
+      }
+    });
+
+    return {
+      address: userAddress,
+      totalPnL,
+      totalInvested,
+      totalWinnings,
+      winRate,
+      totalMarkets,
+      winningMarkets,
+      currentStreak,
+      bestStreak,
+      totalVolume,
+      riskAdjustedReturn,
+      rank: 0, // Will be set by leaderboard generation
+      lastActivity,
+      activities: userActivities,
+    };
+  },
+
+  // Leaderboard functions
+  generateLeaderboard: (timeframe: 'daily' | 'weekly' | 'monthly' | 'all' = 'all') => {
+    const { userActivities, lastLeaderboardTimestamp, leaderboardStats } = get();
+    
+    // Skip generation if we already generated recently and timeframe is 'all' AND we have stats
+    if (timeframe === 'all' && lastLeaderboardTimestamp && userActivities.length > 0 && leaderboardStats.length > 0) {
+      const latestActivityTimestamp = Math.max(...userActivities.map(a => a.timestamp));
+      if (latestActivityTimestamp <= lastLeaderboardTimestamp) {
+        console.log('🏆 Leaderboard already generated recently, skipping...');
+        return get().leaderboardStats;
+      }
+    }
+    
+    // Get unique users
+    const uniqueUsers = new Set<string>();
+    userActivities.forEach(activity => {
+      uniqueUsers.add(activity.address);
+    });
+    
+    console.log(`🏆 Generating leaderboard for ${uniqueUsers.size} unique users with ${userActivities.length} activities`);
+
+    // Calculate stats for all users
+    const allUserStats: UserLeaderboardStats[] = [];
+    uniqueUsers.forEach(userAddress => {
+      const stats = get().calculateUserStats(userAddress);
+      allUserStats.push(stats);
+    });
+
+    // Sort by PnL (descending)
+    allUserStats.sort((a, b) => Number(b.totalPnL) - Number(a.totalPnL));
+
+    // Assign ranks
+    allUserStats.forEach((stats, index) => {
+      stats.rank = index + 1;
+    });
+
+    // Filter by timeframe if needed
+    let filteredStats = allUserStats;
+    if (timeframe !== 'all') {
+      const now = Date.now();
+      const timeframeMs = {
+        daily: 24 * 60 * 60 * 1000,
+        weekly: 7 * 24 * 60 * 60 * 1000,
+        monthly: 30 * 24 * 60 * 60 * 1000,
+      }[timeframe];
+
+      filteredStats = allUserStats.filter(stats => 
+        stats.lastActivity > (now - timeframeMs)
+      );
+    }
+
+    const now = Date.now();
+    set({ 
+      leaderboardStats: filteredStats,
+      lastLeaderboardTimestamp: now
+    });
+    console.log(`🏆 Generated leaderboard with ${filteredStats.length} users`);
+    console.log('🏆 Top 3 users:', filteredStats.slice(0, 3).map(u => ({ 
+      address: u.address, 
+      totalPnL: u.totalPnL.toString(), 
+      rank: u.rank 
+    })));
+    
+    return filteredStats;
+  },
+
+  getUserRank: (userAddress: string) => {
+    const { leaderboardStats } = get();
+    const userStats = leaderboardStats.find(stats => 
+      stats.address.toLowerCase() === userAddress.toLowerCase()
+    );
+    return userStats?.rank || 0;
+  },
+
+  getTopUsers: (count: number = 10) => {
+    const { leaderboardStats } = get();
+    return leaderboardStats.slice(0, count);
   },
 }));

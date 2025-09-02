@@ -1,27 +1,29 @@
-import { useCallback, useEffect } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt, usePublicClient, useAccount } from 'wagmi';
-import { useContractAddress } from './useContractAddress.ts';
+import { useCallback, useEffect, useState } from 'react';
 import { formatEther, parseEther } from 'viem';
+import { useContractAddress } from './useContractAddress.ts';
+import useViemHook from './useViemHook';
 import type { WinnerInfo } from '../utils/contracts';
-import { submitReferral } from '@divvi/referral-sdk';
+import { getReferralTag, submitReferral } from '@divvi/referral-sdk';
 
 export const usePredictionMarketClaims = () => {
-  const { claimsContractAddress, claimsContractABI, isSupportedNetwork } = useContractAddress();
-  const publicClient = usePublicClient();
-  const { address: userAddress } = useAccount();
+  const { 
+    claimsContractAddress, 
+    claimsContractABI, 
+    isSupportedNetwork, 
+    userAddress, 
+    isConnected 
+  } = useContractAddress();
+  
+  const { publicClient, walletClient } = useViemHook();
+  
+  // Transaction state management
+  const [isPending, setIsPending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [hash, setHash] = useState<`0x${string}` | undefined>(undefined);
 
-  const contractConfig = {
-    address: claimsContractAddress || '0x0000000000000000000000000000000000000000',
-    abi: claimsContractABI || [],
-  };
 
-  // Write contract functions
-  const { writeContract, data: hash, isPending } = useWriteContract();
-
-  // Wait for transaction receipt
-  const { isLoading: isConfirming, isSuccess, isError } = useWaitForTransactionReceipt({
-    hash,
-  });
 
   // Handle referral submission when transaction succeeds
   useEffect(() => {
@@ -42,31 +44,73 @@ export const usePredictionMarketClaims = () => {
     }
   }, [isSuccess, hash, userAddress]);
 
-  // Calculate winners for a market
-  const calculateWinners = useCallback(async (marketId: bigint) => {
-    if (!isSupportedNetwork || !claimsContractAddress || !claimsContractABI) {
+  // Generic transaction handler for claims
+  const executeClaimsTransaction = useCallback(async (
+    functionName: string,
+    args: any[]
+  ) => {
+    if (!userAddress) {
+      throw new Error('Wallet connection required');
+    }
+    
+    if (!isSupportedNetwork || !claimsContractAddress || !claimsContractABI || !walletClient) {
       throw new Error('Claims contract not found on current network');
     }
 
-    writeContract({
-      ...contractConfig,
-      functionName: 'calculateWinners',
-      args: [marketId],
-    });
-  }, [writeContract, claimsContractAddress, isSupportedNetwork, claimsContractABI, contractConfig]);
+    try {
+      setIsPending(true);
+      setIsError(false);
+      setIsSuccess(false);
+      setHash(undefined);
+
+      // Generate referral tag
+      const referralTag = getReferralTag({
+        user: userAddress as `0x${string}`,
+        consumer: '0x21D654daaB0fe1be0e584980ca7C1a382850939f',
+      });
+
+      console.log(`Executing claims ${functionName} with referral tag:`, referralTag);
+
+      // Execute transaction
+      const txHash = await walletClient.writeContract({
+        address: claimsContractAddress as `0x${string}`,
+        abi: claimsContractABI as any,
+        account: userAddress as `0x${string}`,
+        functionName,
+        args,
+      });
+
+      setHash(txHash);
+      setIsPending(false);
+      setIsConfirming(true);
+
+      // Wait for transaction receipt
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      setIsConfirming(false);
+      setIsSuccess(true);
+      
+      return receipt;
+    } catch (error) {
+      setIsPending(false);
+      setIsConfirming(false);
+      setIsError(true);
+      console.error(`Error executing claims ${functionName}:`, error);
+      throw error;
+    }
+  }, [userAddress, isSupportedNetwork, claimsContractAddress, claimsContractABI, walletClient, publicClient]);
+
+  // Calculate winners for a market
+  const calculateWinners = useCallback(async (marketId: bigint) => {
+    return executeClaimsTransaction('calculateWinners', [marketId]);
+  }, [executeClaimsTransaction]);
 
   // Claim winnings
   const claimWinnings = useCallback(async (marketId: bigint) => {
-    if (!isSupportedNetwork || !claimsContractAddress || !claimsContractABI) {
-      throw new Error('Claims contract not found on current network');
-    }
-
-    writeContract({
-      ...contractConfig,
-      functionName: 'claimWinnings',
-      args: [marketId],
-    });
-  }, [writeContract, claimsContractAddress, isSupportedNetwork, claimsContractABI, contractConfig]);
+    return executeClaimsTransaction('claimWinnings', [marketId]);
+  }, [executeClaimsTransaction]);
 
   // Check if user is a winner
   const isWinner = useCallback(async (marketId: bigint, userAddress: string): Promise<boolean> => {
@@ -80,7 +124,8 @@ export const usePredictionMarketClaims = () => {
       }
       
       const winner = await publicClient.readContract({
-        ...contractConfig,
+        address: claimsContractAddress as `0x${string}`,
+        abi: claimsContractABI as any,
         functionName: 'isWinner',
         args: [marketId, userAddress as `0x${string}`],
       });
@@ -90,7 +135,7 @@ export const usePredictionMarketClaims = () => {
       console.error('Error checking if user is winner:', error);
       return false;
     }
-  }, [claimsContractAddress, isSupportedNetwork, claimsContractABI, contractConfig]);
+  }, [claimsContractAddress, isSupportedNetwork, claimsContractABI, publicClient]);
 
   // Calculate user winnings
   const calculateUserWinnings = useCallback(async (marketId: bigint, userAddress: string): Promise<number> => {
@@ -104,7 +149,8 @@ export const usePredictionMarketClaims = () => {
       }
       
       const winnings = await publicClient.readContract({
-        ...contractConfig,
+        address: claimsContractAddress as `0x${string}`,
+        abi: claimsContractABI as any,
         functionName: 'calculateUserWinnings',
         args: [marketId, userAddress as `0x${string}`],
       });
@@ -114,7 +160,7 @@ export const usePredictionMarketClaims = () => {
       console.error('Error calculating user winnings:', error);
       return 0;
     }
-  }, [claimsContractAddress, isSupportedNetwork, claimsContractABI, contractConfig]);
+  }, [claimsContractAddress, isSupportedNetwork, claimsContractABI, publicClient]);
 
   // Check if user has already claimed
   const hasClaimed = useCallback(async (marketId: bigint, userAddress: string): Promise<boolean> => {
@@ -128,7 +174,8 @@ export const usePredictionMarketClaims = () => {
       }
       
       const claimed = await publicClient.readContract({
-        ...contractConfig,
+        address: claimsContractAddress as `0x${string}`,
+        abi: claimsContractABI as any,
         functionName: 'hasClaimed',
         args: [marketId, userAddress as `0x${string}`],
       });
@@ -138,7 +185,7 @@ export const usePredictionMarketClaims = () => {
       console.error('Error checking if user has claimed:', error);
       return false;
     }
-  }, [claimsContractAddress, isSupportedNetwork, claimsContractABI, contractConfig]);
+  }, [claimsContractAddress, isSupportedNetwork, claimsContractABI, publicClient]);
 
   // Get total winning shares for a market
   const getTotalWinningShares = useCallback(async (marketId: bigint): Promise<number> => {
@@ -152,7 +199,8 @@ export const usePredictionMarketClaims = () => {
       }
       
       const totalShares = await publicClient.readContract({
-        ...contractConfig,
+        address: claimsContractAddress as `0x${string}`,
+        abi: claimsContractABI as any,
         functionName: 'totalWinningShares',
         args: [marketId],
       });
@@ -162,7 +210,36 @@ export const usePredictionMarketClaims = () => {
       console.error('Error getting total winning shares:', error);
       return 0;
     }
-  }, [claimsContractAddress, isSupportedNetwork, claimsContractABI, contractConfig]);
+  }, [claimsContractAddress, isSupportedNetwork, claimsContractABI, publicClient]);
+
+  // Get detailed winnings breakdown
+  const getWinningsBreakdown = useCallback(async (marketId: bigint, userAddress: string) => {
+    if (!isSupportedNetwork || !claimsContractAddress || !claimsContractABI) {
+      throw new Error('Claims contract not found on current network');
+    }
+
+    if (!userAddress) {
+      throw new Error('User address is required');
+    }
+
+    try {
+      if (!publicClient) {
+        throw new Error('Public client not available');
+      }
+      
+      const breakdown = await publicClient.readContract({
+        address: claimsContractAddress as `0x${string}`,
+        abi: claimsContractABI as any,
+        functionName: 'getWinningsBreakdown',
+        args: [marketId, userAddress as `0x${string}`],
+      });
+
+      return breakdown;
+    } catch (error) {
+      console.error('Error getting winnings breakdown:', error);
+      return null;
+    }
+  }, [claimsContractAddress, isSupportedNetwork, claimsContractABI, publicClient]);
 
   // Get comprehensive winner info for a user
   const getWinnerInfo = useCallback(async (marketId: bigint, userAddress: string): Promise<WinnerInfo | null> => {
@@ -209,6 +286,10 @@ export const usePredictionMarketClaims = () => {
     isError,
     hash,
     
+    // Wallet state
+    userAddress,
+    isConnected,
+    
     // Write functions
     calculateWinners,
     claimWinnings,
@@ -218,6 +299,7 @@ export const usePredictionMarketClaims = () => {
     calculateUserWinnings,
     hasClaimed,
     getTotalWinningShares,
+    getWinningsBreakdown,
     getWinnerInfo,
     
     // Utility functions

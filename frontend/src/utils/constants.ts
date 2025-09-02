@@ -31,9 +31,9 @@ export const CONTRACTS = {
       name: 'PredictionMarketCore',
       abi: PREDICTION_MARKET_CORE_ABI,
     },
-    // Celo Mainnet core contract
+    // Celo Mainnet core contract (UPDATED with creator fee functionality - v4)
     CELO_MAINNET: {
-      address: import.meta.env.VITE_CELO_MAINNET_CORE_CONTRACT_ADDRESS || '0x0C49604c65588858DC206AAC6EFEc0F8Afe2d1d6',
+      address: import.meta.env.VITE_CELO_MAINNET_CORE_CONTRACT_ADDRESS || '0x2D6614fe45da6Aa7e60077434129a51631AC702A',
       name: 'PredictionMarketCore',
       abi: PREDICTION_MARKET_CORE_ABI,
     },
@@ -51,9 +51,9 @@ export const CONTRACTS = {
       name: 'PredictionMarketClaims',
       abi: PREDICTION_MARKET_CLAIMS_ABI,
     },
-    // Celo Mainnet claims contract (UPDATED with winnings fix - v2)
+    // Celo Mainnet claims contract (UPDATED with creator fee functionality - v4)
     CELO_MAINNET: {
-      address: import.meta.env.VITE_CELO_MAINNET_CLAIMS_CONTRACT_ADDRESS || '0xfFA05a77182e2CECA2667Eeec5367F8F1683478C',
+      address: import.meta.env.VITE_CELO_MAINNET_CLAIMS_CONTRACT_ADDRESS || '0xA8479E513D8643001285D9AF6277602B20676B95',
       name: 'PredictionMarketClaims',
       abi: PREDICTION_MARKET_CLAIMS_ABI,
     },
@@ -80,7 +80,7 @@ export const APP_CONFIG = {
   maxQuestionLength: 200,
   maxDescriptionLength: 500,
   maxSourceLength: 100,
-  marketCreationFee: '1', // 1 CELO (mainnet)
+  marketCreationFee: '0.01', // 0.01 CELO (mainnet)
   usernameChangeFee: '0.00001', // 0.00001 CELO
 } as const;
 
@@ -92,7 +92,7 @@ export const UI_CONFIG = {
   maxSourceLength: 100,
   defaultGasLimit: 300000,
   defaultGasPrice: '1000000000', // 1 gwei
-  marketCreationFee: '1', // 1 CELO (mainnet)
+  marketCreationFee: '0.01', // 0.01 CELO (mainnet)
   usernameChangeFee: '0.00001', // 0.00001 CELO
 } as const;
 
@@ -115,6 +115,9 @@ export const ERROR_MESSAGES = {
   INSUFFICIENT_CONTRACT_BALANCE: 'Insufficient contract balance for payout',
   WINNER_CALCULATION_FAILED: 'Failed to calculate winners for this market',
   CLAIMING_NOT_AVAILABLE: 'Claiming is not available for this market',
+  CREATOR_FEE_ALREADY_CLAIMED: 'Creator fee has already been claimed for this market',
+  NO_CREATOR_FEE_TO_CLAIM: 'No creator fee to claim for this market',
+  NOT_MARKET_CREATOR: 'Only the market creator can claim the creator fee',
 } as const;
 
 // Success Messages
@@ -129,6 +132,8 @@ export const SUCCESS_MESSAGES = {
   REWARDS_DISBURSED: 'Rewards disbursed successfully',
   FEES_UPDATED: 'Fees updated successfully',
   ADMIN_CHANGED: 'Admin address changed successfully',
+  CREATOR_FEE_CLAIMED: 'Creator fee claimed successfully',
+  CREATOR_FEE_PERCENTAGE_UPDATED: 'Creator fee percentage updated successfully',
 } as const;
 
 export const changeFeeData = 10000000000000000

@@ -22,6 +22,7 @@ export const useMarkets = () => {
     totalMarkets, 
     // refetchTotalMarkets,
     getMarket,
+    getMarketMetadata,
     getUserShares,
     getUserParticipation,
     getWinnerInfo
@@ -83,6 +84,10 @@ export const useMarkets = () => {
               const market = await getMarket(BigInt(i));
               if (!market) return null;
 
+              // Fetch metadata separately
+              const metadata = await getMarketMetadata(BigInt(i));
+              const metadataTyped = metadata as any;
+
               // Calculate additional market data
               const now = Math.floor(Date.now() / 1000);
               const timeRemaining = Math.max(0, Number(market.endTime) - now);
@@ -95,6 +100,10 @@ export const useMarkets = () => {
 
               return {
                 ...market,
+                description: metadataTyped.description as string,
+                category: metadataTyped.category as string,
+                image: metadataTyped.image as string,
+                source: metadataTyped.source as string,
                 timeRemaining,
                 isEnded,
                 isActive,
@@ -119,12 +128,12 @@ export const useMarkets = () => {
     } finally {
       setLoading(false);
     }
-  }, [totalMarkets, getMarket]);
+  }, [totalMarkets, getMarket, getMarketMetadata]);
 
   // Fetch markets when totalMarkets changes
   useEffect(() => {
     fetchMarkets();
-  }, [fetchMarkets]);
+  }, [totalMarkets, getMarket, getMarketMetadata]);
 
   // Filter and sort markets
   const filteredAndSortedMarkets = useMemo(() => {

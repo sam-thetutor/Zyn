@@ -1,0 +1,20 @@
+{
+  "network": "celo-mainnet",
+  "chainId": 42220,
+  "timestamp": "2025-09-02T22:47:26.495Z",
+  "coreContract": "0x4B8aCfD15bABb444b490c8Cb18B2257aFaa976c9",
+  "claimsContract": "0xAE47B7dfA1f6840E2Ec2B0453d54893dB55C8325",
+  "deployer": "0x21D654daaB0fe1be0e584980ca7C1a382850939f",
+  "marketCreationFee": "1 CELO",
+  "creatorFeePercentage": "15% of losing shares",
+  "rpcUrl": "https://forno.celo.org",
+  "explorerUrl": "https://celoscan.io",
+  "features": [
+    "Market creation with 1 CELO fee",
+    "Creator fee claiming (configurable % of losing shares after resolution)",
+    "Admin function to update creator fee percentage",
+    "Username management",
+    "Winner calculation and claiming",
+    "Admin fee withdrawal"
+  ]
+}

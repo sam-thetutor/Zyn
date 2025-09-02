@@ -395,17 +395,14 @@ export const PREDICTION_MARKET_CORE_ABI = [
         "components": [
           { "internalType": "uint256", "name": "id", "type": "uint256" },
           { "internalType": "string",  "name": "question", "type": "string" },
-          { "internalType": "string",  "name": "description", "type": "string" },
-          { "internalType": "string",  "name": "category", "type": "string" },
-          { "internalType": "string",  "name": "image", "type": "string" },
-          { "internalType": "string",  "name": "source", "type": "string" },
           { "internalType": "uint256", "name": "endTime", "type": "uint256" },
           { "internalType": "uint256", "name": "totalPool", "type": "uint256" },
           { "internalType": "uint256", "name": "totalYes", "type": "uint256" },
           { "internalType": "uint256", "name": "totalNo", "type": "uint256" },
-          { "internalType": "uint8",   "name": "status", "type": "uint8" },
+          { "internalType": "enum PredictionMarketCore.MarketStatus", "name": "status", "type": "uint8" },
           { "internalType": "bool",    "name": "outcome", "type": "bool" },
-          { "internalType": "uint256", "name": "createdAt", "type": "uint256" }
+          { "internalType": "uint256", "name": "createdAt", "type": "uint256" },
+          { "internalType": "address", "name": "creator", "type": "address" }
         ],
         "internalType": "struct PredictionMarketCore.Market",
         "name": "",
@@ -697,6 +694,130 @@ export const PREDICTION_MARKET_CORE_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getMarketMetadata",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "string",
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "category",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "image",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "source",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct PredictionMarketCore.MarketMetadata",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getCreatorFeeInfo",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "creatorFee",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "creatorFeeClaimed",
+            "type": "bool"
+          }
+        ],
+        "internalType": "struct PredictionMarketCore.CreatorFeeData",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimCreatorFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "creatorFeePercentage",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newPercentage",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateCreatorFeePercentage",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateMarketCreationFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ];
 
@@ -872,6 +993,50 @@ export const PREDICTION_MARKET_CLAIMS_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "marketId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "getWinningsBreakdown",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "userShares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalWinningShares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalLosingShares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "userWinnings",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "hasLosingShares",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
@@ -879,10 +1044,6 @@ export const PREDICTION_MARKET_CLAIMS_ABI = [
 export interface Market {
   id: bigint;
   question: string;
-  description: string;
-  category: string;
-  image: string;
-  source: string;
   endTime: bigint;
   totalPool: bigint;
   totalYes: bigint;
@@ -890,6 +1051,19 @@ export interface Market {
   status: MarketStatus;
   outcome: boolean;
   createdAt: bigint;
+  creator: string;
+}
+
+export interface MarketMetadata {
+  description: string;
+  category: string;
+  image: string;
+  source: string;
+}
+
+export interface CreatorFeeData {
+  creatorFee: bigint;
+  creatorFeeClaimed: boolean;
 }
 
 export const MarketStatus = {

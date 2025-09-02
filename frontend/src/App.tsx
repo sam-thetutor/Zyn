@@ -13,6 +13,7 @@ import MarketDetail from './pages/MarketDetail';
 import CreateMarket from './pages/CreateMarket';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import Leaderboard from './pages/Leaderboard';
 
 
 // Initialize Farcaster SDK
@@ -40,6 +41,7 @@ function App() {
                       <Route path="/create-market" element={<CreateMarket />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/admin" element={<Admin />} />
+                      <Route path="/leaderboard" element={<Leaderboard />} />
                     </Routes>
                   </div>
                 </main>

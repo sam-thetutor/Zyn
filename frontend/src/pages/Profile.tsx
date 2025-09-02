@@ -171,7 +171,8 @@ const Profile: React.FC = () => {
               { id: 'overview', label: 'Overview', count: null },
               { id: 'activities', label: 'Activities', count: userLogs.length },
               { id: 'markets', label: 'My Markets', count: userStats.totalMarkets },
-              { id: 'referrals', label: 'Referrals', count: referralStats.totalReferrals }
+              { id: 'referrals', label: 'Referrals', count: referralStats.totalReferrals },
+              { id: 'Quests', label: 'Quests', count: userLogs.length }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -203,9 +204,9 @@ const Profile: React.FC = () => {
                   <span className="text-2xl">💎</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Celo Balance</p>
+                  <p className="text-sm font-medium text-gray-600">Balance({balance?.symbol})</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {balanceLoading ? '...' : balance ? `${parseFloat(balance.formatted).toFixed(4)} ${balance.symbol}` : '0 CELO'}
+                    {balanceLoading ? '...' : balance ? `${parseFloat(balance.formatted).toFixed(3)}` : '0 '}
                   </p>
                 </div>
               </div>
@@ -218,7 +219,7 @@ const Profile: React.FC = () => {
                   <span className="text-2xl">📊</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Markets Created</p>
+                  <p className="text-xs font-medium text-gray-600">Markets Created</p>
                   <p className="text-2xl font-bold text-gray-900">{userStats.totalMarkets}</p>
                 </div>
               </div>
@@ -230,7 +231,7 @@ const Profile: React.FC = () => {
                   <span className="text-2xl">💰</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Trades</p>
+                  <p className="text-xs font-medium text-gray-600">Total Trades</p>
                   <p className="text-2xl font-bold text-gray-900">{userStats.totalTrades}</p>
                 </div>
               </div>
@@ -242,7 +243,7 @@ const Profile: React.FC = () => {
                   <span className="text-2xl">🎯</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Markets Resolved</p>
+                  <p className="text-xs font-medium text-gray-600">Markets Resolved</p>
                   <p className="text-2xl font-bold text-gray-900">{userStats.totalResolved}</p>
                 </div>
               </div>
@@ -254,7 +255,7 @@ const Profile: React.FC = () => {
                   <span className="text-2xl">🏆</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Winnings</p>
+                  <p className="text-xs font-medium text-gray-600">Total Winnings</p>
                   <p className="text-2xl font-bold text-gray-900">{formatEther(userStats.totalWinnings)} CELO</p>
                 </div>
               </div>

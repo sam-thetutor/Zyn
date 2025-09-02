@@ -1,15 +1,34 @@
-import { useCallback, useMemo, useEffect } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useReadContract } from 'wagmi';
-import { formatEther, parseEther } from 'viem';
+import { useCallback, useMemo, useEffect, useState } from 'react';
+import { formatEther, parseEther, encodeFunctionData } from 'viem';
 import { useContractAddress } from './useContractAddress.ts';
+import useViemHook from './useViemHook.ts';
 import type { Market, MarketStatus, UserParticipation } from '../utils/contracts';
 import { getReferralTag, submitReferral } from '@divvi/referral-sdk';
 
 
 export const usePredictionMarketCore = () => {
-  const { coreContractAddress, coreContractABI, isSupportedNetwork } = useContractAddress();
-  const publicClient = usePublicClient();
-  const { address: userAddress } = useAccount();
+  const { 
+    coreContractAddress, 
+    coreContractABI, 
+    isSupportedNetwork, 
+    userAddress, 
+    isConnected,
+    connectWallet,
+    disconnectWallet 
+  } = useContractAddress();
+  
+  const { publicClient, walletClient } = useViemHook();
+  
+  // Transaction state management
+  const [isPending, setIsPending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const [hash, setHash] = useState<`0x${string}` | undefined>(undefined);
+  
+  // Contract data state
+  const [totalMarkets, setTotalMarkets] = useState<bigint>(0n);
+  const [marketCreationFeeData, setMarketCreationFeeData] = useState<bigint | undefined>(undefined);
 
   
   const contractConfig = useMemo(() => ({
@@ -17,48 +36,124 @@ export const usePredictionMarketCore = () => {
     abi: coreContractABI || [],
   }), [coreContractAddress, coreContractABI]);
 
-  // Read contract functions - Only require wallet for write operations
-  const { data: totalMarkets = 0n, refetch: refetchTotalMarkets } = useReadContract({
-    ...contractConfig,
-    functionName: 'getMarketCount',
-  });
-
-  // Read market creation fee from contract
-  const { data: marketCreationFeeData, refetch: refetchMarketCreationFee } = useReadContract({
-    ...contractConfig,
-    functionName: 'getMarketCreationFee',
-  });
-
-  // Default values for fees since they don't exist in the contract
-  // Username change fee constant (unused but kept for reference)
-
-  // Write contract functions
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  console.log('hash', hash);
-
-  // Wait for transaction receipt
-  const { isLoading: isConfirming, isSuccess, isError } = useWaitForTransactionReceipt({
-    hash,
-  });
-
-  // Handle referral submission when transaction succeeds
-  useEffect(() => {
-    if (isSuccess && hash && userAddress) {
-      const submitReferralData = async () => {
-        try {
-          await submitReferral({
-            txHash: hash,
-            chainId: 42220, // Celo Mainnet
-          });
-          console.log('Referral submitted successfully for transaction:', hash);
-        } catch (error) {
-          console.warn('Referral submission failed, but transaction succeeded:', error);
-        }
-      };
-      
-      submitReferralData();
+  // Manual data fetching functions
+  const fetchTotalMarkets = useCallback(async () => {
+    if (!publicClient || !coreContractAddress || !coreContractABI) return;
+    
+    try {
+      const count = await publicClient.readContract({
+        address: coreContractAddress as `0x${string}`,
+        abi: coreContractABI as any,
+        functionName: 'getMarketCount',
+        args: [],
+      });
+      setTotalMarkets(count as bigint);
+    } catch (error) {
+      console.error('Error fetching total markets:', error);
     }
-  }, [isSuccess, hash, userAddress]);
+  }, [publicClient, coreContractAddress, coreContractABI]);
+
+  const fetchMarketCreationFee = useCallback(async () => {
+    if (!publicClient || !coreContractAddress || !coreContractABI) return;
+    
+    try {
+      const fee = await publicClient.readContract({
+        address: coreContractAddress as `0x${string}`,
+        abi: coreContractABI as any,
+        functionName: 'getMarketCreationFee',
+        args: [],
+      });
+      setMarketCreationFeeData(fee as bigint);
+    } catch (error) {
+      console.error('Error fetching market creation fee:', error);
+    }
+  }, [publicClient, coreContractAddress, coreContractABI]);
+
+  // Load initial data
+  useEffect(() => {
+    fetchTotalMarkets();
+    fetchMarketCreationFee();
+  }, [publicClient, coreContractAddress, coreContractABI]);
+
+  // Note: Referral submission is now handled directly in executeTransaction
+
+  // Generic transaction handler
+  const executeTransaction = useCallback(async (
+    functionName: string,
+    args: any[],
+    value?: bigint
+  ) => {
+    if (!userAddress) {
+      throw new Error('Wallet connection required');
+    }
+    
+    if (!isSupportedNetwork || !coreContractAddress || !coreContractABI || !walletClient) {
+      throw new Error('Core contract not found on current network');
+    }
+
+    try {
+      setIsPending(true);
+      setIsError(false);
+      setIsSuccess(false);
+      setHash(undefined);
+
+      // Generate referral tag
+      const referralTag = getReferralTag({
+        user: userAddress as `0x${string}`,
+        consumer: '0x21D654daaB0fe1be0e584980ca7C1a382850939f',
+      });
+
+      console.log(`Executing ${functionName} with referral tag:`, referralTag);
+
+      // Encode the contract function call
+      const contractData = encodeFunctionData({
+        abi: coreContractABI as any,
+        functionName,
+        args,
+      });
+
+      // Execute transaction with referral tag appended to data
+      const txHash = await walletClient.sendTransaction({
+        account: userAddress as `0x${string}`,
+        to: coreContractAddress as `0x${string}`,
+        data: (contractData + referralTag) as `0x${string}`, 
+        value: value || 0n,
+      });
+
+      console.log(`Transaction hash:`, txHash);
+
+     
+      setIsPending(false);
+      setIsConfirming(true);
+
+      // Wait for transaction receipt
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+       // Get chain ID and submit the referral
+       const chainId = await walletClient.getChainId();
+       await submitReferral({
+        txHash: txHash,
+        chainId: chainId,
+      });
+
+
+      setIsConfirming(false);
+      setIsSuccess(true);
+      
+      // Refresh data after successful transaction
+      fetchTotalMarkets();
+      
+      return receipt;
+    } catch (error) {
+      setIsPending(false);
+      setIsConfirming(false);
+      setIsError(true);
+      console.error(`Error executing ${functionName}:`, error);
+      throw error;
+    }
+  }, [userAddress, isSupportedNetwork, coreContractAddress, coreContractABI, walletClient, publicClient, fetchTotalMarkets]);
 
   // Create market - Requires wallet connection
   const createMarket = useCallback(async (
@@ -70,56 +165,12 @@ export const usePredictionMarketCore = () => {
     endTime: bigint,
     value: bigint
   ) => {
-    console.log('createMarket called with userAddress:', userAddress);
-    console.log('isSupportedNetwork:', isSupportedNetwork);
-    console.log('coreContractAddress:', coreContractAddress);
-    
-    if (!userAddress) {
-      throw new Error('Wallet connection required to create markets');
-    }
-    
-    if (!isSupportedNetwork || !coreContractAddress || !coreContractABI) {
-      throw new Error('Core contract not found on current network');
-    }
-
-    try {
-      // Use the userAddress from wagmi instead of creating a new wallet client
-      console.log('Using userAddress for referral tag:', userAddress);
-
-      // Step 1: Generate a referral tag for the user
-      const referralTag = getReferralTag({
-        user: userAddress as `0x${string}`, // Use the validated userAddress from wagmi
-        consumer: '0x21D654daaB0fe1be0e584980ca7C1a382850939f', // Your Divvi Identifier
-      });
-
-      console.log('Creating market with referral tag:', referralTag);
-
-      // Step 2: Send the transaction using wagmi's writeContract
-      writeContract({
-        ...contractConfig,
-        functionName: 'createMarket',
-        args: [question, description, category, image, source, endTime],
-        value,
-      });
-
-      // Note: The transaction hash will be available in the hash state from useWriteContract
-      // Referral tracking will be handled when the transaction succeeds
-    } catch (error) {
-      console.error('Error creating market:', error);
-      
-      // Provide more specific error messages
-      if (error instanceof Error) {
-        if (error.message.includes('InvalidAddressError') || error.message.includes('Invalid Ethereum address')) {
-          throw new Error('Wallet connection issue. Please reconnect your wallet and try again.');
-        } else if (error.message.includes('Failed to get valid wallet account')) {
-          throw new Error('Unable to access your wallet account. Please check your wallet connection.');
-        }
-      }
-      
-      throw error;
-    }
-  
-  }, [writeContract, coreContractAddress, isSupportedNetwork, coreContractABI, contractConfig, userAddress]);
+    return executeTransaction(
+      'createMarket',
+      [question, description, category, image, source, endTime],
+      value
+    );
+  }, [executeTransaction]);
 
   // Buy shares - Requires wallet connection
   const buyShares = useCallback(async (
@@ -127,105 +178,39 @@ export const usePredictionMarketCore = () => {
     outcome: boolean,
     value: bigint
   ) => {
-    if (!userAddress) {
-      throw new Error('Wallet connection required to buy shares');
-    }
-    
-    if (!isSupportedNetwork || !coreContractAddress || !coreContractABI) {
-      throw new Error('Core contract not found on current network');
-    }
-
-    try {
-      // Use the userAddress from wagmi instead of creating a new wallet client
-      console.log('Using userAddress for buyShares referral tag:', userAddress);
-
-      // Step 1: Generate a referral tag for the user
-      const referralTag = getReferralTag({
-        user: userAddress as `0x${string}`, // Use the validated userAddress from wagmi
-        consumer: '0x21D654daaB0fe1be0e584980ca7C1a382850939f', // Your Divvi Identifier
-      });
-
-      console.log('Buying shares with referral tag:', referralTag);
-
-      // Step 2: Use wagmi's writeContract
-      writeContract({
-        ...contractConfig,
-        functionName: 'buyShares',
-        args: [marketId, outcome],
-        value,
-      });
-
-      // Note: The transaction hash will be available in the hash state from useWriteContract
-      // Referral tracking will be handled when the transaction succeeds
-    } catch (error) {
-      console.error('Error buying shares:', error);
-      
-      // Provide more specific error messages
-      if (error instanceof Error) {
-        if (error.message.includes('InvalidAddressError') || error.message.includes('Invalid Ethereum address')) {
-          throw new Error('Wallet connection issue. Please reconnect your wallet and try again.');
-        } else if (error.message.includes('Failed to get valid wallet account')) {
-          throw new Error('Unable to access your wallet account. Please check your wallet connection.');
-        }
-      }
-      
-      throw error;
-    }
-  }, [writeContract, coreContractAddress, isSupportedNetwork, coreContractABI, contractConfig, userAddress]);
+    return executeTransaction(
+      'buyShares',
+      [marketId, outcome],
+      value
+    );
+  }, [executeTransaction]);
 
   // Resolve market - Requires wallet connection
   const resolveMarket = useCallback(async (
     marketId: bigint,
     outcome: boolean
   ) => {
-    if (!userAddress) {
-      throw new Error('Wallet connection required to resolve markets');
-    }
-    
-    if (!isSupportedNetwork || !coreContractAddress || !coreContractABI) {
-      throw new Error('Core contract not found on current network');
-    }
-
-    writeContract({
-      ...contractConfig,
-      functionName: 'resolveMarket',
-      args: [marketId, outcome],
-    });
-  }, [writeContract, coreContractAddress, isSupportedNetwork, coreContractABI, contractConfig, userAddress]);
+    return executeTransaction(
+      'resolveMarket',
+      [marketId, outcome]
+    );
+  }, [executeTransaction]);
 
   // Set username - Requires wallet connection
   const setUsername = useCallback(async (username: string) => {
-    if (!userAddress) {
-      throw new Error('Wallet connection required to set username');
-    }
-    
-    if (!isSupportedNetwork || !coreContractAddress || !coreContractABI) {
-      throw new Error('Core contract not found on current network');
-    }
-
-    writeContract({
-      ...contractConfig,
-      functionName: 'setUsername',
-      args: [username],
-    });
-  }, [writeContract, coreContractAddress, isSupportedNetwork, coreContractABI, contractConfig, userAddress]);
+    return executeTransaction(
+      'setUsername',
+      [username]
+    );
+  }, [executeTransaction]);
 
   // Change username - Requires wallet connection
   const changeUsername = useCallback(async (newUsername: string) => {
-    if (!userAddress) {
-      throw new Error('Wallet connection required to change username');
-    }
-    
-    if (!isSupportedNetwork || !coreContractAddress || !coreContractABI) {
-      throw new Error('Core contract not found on current network');
-    }
-
-    writeContract({
-      ...contractConfig,
-      functionName: 'changeUsername',
-      args: [newUsername],
-    });
-  }, [writeContract, coreContractAddress, isSupportedNetwork, coreContractABI, contractConfig, userAddress]);
+    return executeTransaction(
+      'changeUsername',
+      [newUsername]
+    );
+  }, [executeTransaction]);
 
   // Get market by ID - No wallet required
   const getMarket = useCallback(async (marketId: bigint): Promise<Market> => {
@@ -250,10 +235,6 @@ export const usePredictionMarketCore = () => {
       const market = {
         id: marketDataTyped.id as bigint,
         question: marketDataTyped.question as string,
-        description: marketDataTyped.description as string,
-        category: marketDataTyped.category as string,
-        image: marketDataTyped.image as string,
-        source: marketDataTyped.source as string,
         endTime: marketDataTyped.endTime as bigint,
         totalPool: marketDataTyped.totalPool as bigint,
         totalYes: marketDataTyped.totalYes as bigint,
@@ -261,6 +242,7 @@ export const usePredictionMarketCore = () => {
         status: marketDataTyped.status as MarketStatus,
         outcome: marketDataTyped.outcome as boolean,
         createdAt: marketDataTyped.createdAt as bigint,
+        creator: marketDataTyped.creator as string,
       };
 
       return market;
@@ -269,6 +251,27 @@ export const usePredictionMarketCore = () => {
       throw error;
     }
   }, [publicClient, coreContractAddress, coreContractABI]);
+
+  // Get market metadata by ID - No wallet required
+  const getMarketMetadata = useCallback(async (marketId: bigint) => {
+    if (!coreContractAddress || !coreContractABI || !publicClient) {
+      throw new Error('Core contract not found');
+    }
+
+    try {
+      const metadata = await publicClient.readContract({
+        address: coreContractAddress as `0x${string}`,
+        abi: coreContractABI as any,
+        functionName: 'getMarketMetadata',
+        args: [marketId],
+      });
+
+      return metadata;
+    } catch (error) {
+      console.error('Error fetching market metadata:', error);
+      throw error;
+    }
+  }, [coreContractAddress, coreContractABI, publicClient]);
 
   // Get user participation - Requires wallet connection
   const getUserParticipation = useCallback(async (marketId: bigint, userAddress: string): Promise<UserParticipation | null> => {
@@ -427,9 +430,15 @@ export const usePredictionMarketCore = () => {
     isError,
     hash,
     
-    // Read functions
-    refetchTotalMarkets,
-    refetchMarketCreationFee,
+    // Wallet state
+    userAddress,
+    isConnected,
+    connectWallet,
+    disconnectWallet,
+    
+    // Read functions (refetch)
+    refetchTotalMarkets: fetchTotalMarkets,
+    refetchMarketCreationFee: fetchMarketCreationFee,
     refetchUsernameChangeFee: () => {}, // No-op since we use default values
     
     // Write functions
@@ -444,6 +453,7 @@ export const usePredictionMarketCore = () => {
     
     // Read functions (async)
     getMarket,
+    getMarketMetadata,
     getUserParticipation,
     getUserShares,
     getUsername,

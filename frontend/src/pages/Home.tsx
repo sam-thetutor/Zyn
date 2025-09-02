@@ -183,20 +183,23 @@ const Home: React.FC = () => {
       </div>
 
 
-      {/* Trending Markets */}
+      {/* Trending Markets & Leaderboard */}
       <div className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">
-              Trending Markets
-            </h2>
-            <Link
-              to="/markets"
-              className="text-blue-600 hover:text-blue-700 font-medium"
-            >
-              View All Markets →
-            </Link>
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            {/* Trending Markets */}
+            <div className="lg:col-span-3">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-3xl font-bold text-gray-900">
+                  Trending Markets
+                </h2>
+                <Link
+                  to="/markets"
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  View All Markets →
+                </Link>
+              </div>
           {marketsLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
@@ -285,6 +288,10 @@ const Home: React.FC = () => {
               ))}
             </div>
           )}
+            </div>
+
+        
+          </div>
         </div>
       </div>
 

@@ -9,6 +9,7 @@ import { useMiniApp } from '../hooks/useMiniApp';
 import { useReferral } from '../contexts/ReferralContext';
 import NotificationContainer from '../components/NotificationContainer';
 import { MarketEmbedMeta } from '../components/MarketEmbedMeta';
+import { WinningsBreakdownComponent } from '../components/WinningsBreakdown';
 import { formatEther, parseEther } from 'viem';
 
 // Current CELO price in USD (update this as needed)
@@ -291,7 +292,7 @@ const MarketDetail: React.FC = () => {
       // Refresh logs to include the new transaction (with delay to ensure transaction is processed)
       setTimeout(() => {
         fetchAllLogs();
-      }, 2000);
+      }, 5000);
       
       // Trigger haptic feedback for Mini App users
       if (isMiniApp) {
@@ -358,7 +359,7 @@ const MarketDetail: React.FC = () => {
           
           checkClaimEligibility();
         }, 1000);
-      }, 2000);
+      }, 5000);
       
       // Submit referral if user was referred
       if (referralCode) {
@@ -724,82 +725,6 @@ const MarketDetail: React.FC = () => {
         </div>
       </div>
 
-      {/* Market Participants Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">Market Participants</h3>
-          <div className="text-sm text-gray-500">
-            {logsLoading ? 'Loading...' : `${totalParticipants} participants`}
-          </div>
-        </div>
-
-        {logsLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading participants...</p>
-          </div>
-        ) : marketParticipants.length > 0 ? (
-          <div className="space-y-4">
-            {/* Participants List */}
-            <div className="max-h-96 overflow-y-auto">
-                            {marketParticipants.map((participant, index) => (
-                <div 
-                  key={participant.address} 
-                  className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  {/* Participant Info */}
-                  <div className="flex items-center space-x-4">
-                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <div className="text-xs md:font-medium text-gray-900">
-                        {shortenAddress(participant.address)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {participant.lastParticipation ? 'Yes' : 'No'} side
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Investment Details */}
-                  <div className="text-right">
-                    <div className="font-medium text-gray-900">
-                      ${(Number(formatEther(participant.totalInvestment)) * CELO_PRICE_USD).toFixed(2)}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {formatEther(participant.totalInvestment)} CELO
-                    </div>
-                  </div>
-
-                  {/* Shares Breakdown */}
-                  <div className="text-right text-sm">
-                    <div className="text-green-600">
-                      Yes: {formatEther(participant.totalYesShares)}
-                    </div>
-                    <div className="text-red-600">
-                      No: {formatEther(participant.totalNoShares)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-        
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <div className="text-gray-400 text-4xl mb-4">👥</div>
-            <h4 className="text-lg font-medium text-gray-900 mb-2">No Participants Yet</h4>
-            <p className="text-gray-600">
-              Be the first to participate in this market!
-            </p>
-          </div>
-        )}
-      </div>
-
-     
-
       {/* Trading Section */}
       {market.status === 0 && !market.isEnded && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -906,6 +831,80 @@ const MarketDetail: React.FC = () => {
         </div>
       )}
 
+      {/* Market Participants Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Market Participants</h3>
+          <div className="text-sm text-gray-500">
+            {logsLoading ? 'Loading...' : `${totalParticipants} participants`}
+          </div>
+        </div>
+
+        {logsLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading participants...</p>
+          </div>
+        ) : marketParticipants.length > 0 ? (
+          <div className="space-y-4">
+            {/* Participants List */}
+            <div className="max-h-96 overflow-y-auto">
+                            {marketParticipants.map((participant, index) => (
+                <div 
+                  key={participant.address} 
+                  className="flex items-center justify-between p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  {/* Participant Info */}
+                  <div className="flex items-center space-x-4">
+                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium text-gray-600">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <div className="text-xs md:font-medium text-gray-900">
+                        {shortenAddress(participant.address)}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {participant.lastParticipation ? 'Yes' : 'No'} side
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Investment Details */}
+                  <div className="text-right">
+                    <div className="font-medium text-gray-900">
+                      ${(Number(formatEther(participant.totalInvestment)) * CELO_PRICE_USD).toFixed(2)}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {formatEther(participant.totalInvestment)} CELO
+                    </div>
+                  </div>
+
+                  {/* Shares Breakdown */}
+                  <div className="text-right text-sm">
+                    <div className="text-green-600">
+                      Yes: {formatEther(participant.totalYesShares)}
+                    </div>
+                    <div className="text-red-600">
+                      No: {formatEther(participant.totalNoShares)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+        
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <div className="text-gray-400 text-4xl mb-4">👥</div>
+            <h4 className="text-lg font-medium text-gray-900 mb-2">No Participants Yet</h4>
+            <p className="text-gray-600">
+              Be the first to participate in this market!
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Market Resolution */}
       {market.status === 1 && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -1002,6 +1001,15 @@ const MarketDetail: React.FC = () => {
         </div>
       )}
 
+      {/* Winnings Breakdown - Only for resolved markets with user participation */}
+      {market.status === 1 && address && hasUserParticipated() && (
+        <WinningsBreakdownComponent 
+          marketId={market.id}
+          userAddress={address}
+          className="mb-6"
+        />
+      )}
+
       {/* Market Details */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Market Details</h3>
@@ -1095,6 +1103,48 @@ const MarketDetail: React.FC = () => {
                 </span>
               </div>
             </div>
+
+            {/* Potential Winnings Preview */}
+            {buyAmount && parseFloat(buyAmount) > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-sm font-medium text-blue-900 mb-2">Potential Winnings Preview</div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">If you win:</span>
+                    <span className="font-medium text-blue-900">
+                      {(() => {
+                        try {
+                          const investment = parseFloat(buyAmount);
+                          const currentWinningShares = buyOutcome ? Number(formatEther(market.totalYes)) : Number(formatEther(market.totalNo));
+                          const currentLosingShares = buyOutcome ? Number(formatEther(market.totalNo)) : Number(formatEther(market.totalYes));
+                          
+                          if (currentLosingShares > 0) {
+                            // Calculate potential winnings
+                            const creatorFee = currentLosingShares * 0.15;
+                            const platformFee = currentLosingShares * 0.15;
+                            const availableWinnings = currentLosingShares - creatorFee - platformFee;
+                            const userShare = (availableWinnings * investment) / (currentWinningShares + investment);
+                            const totalWinnings = investment + userShare;
+                            return `${totalWinnings.toFixed(4)} CELO`;
+                          } else {
+                            return `${investment.toFixed(4)} CELO`;
+                          }
+                        } catch {
+                          return 'Calculating...';
+                        }
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-700">If you lose:</span>
+                    <span className="font-medium text-red-600">0 CELO</span>
+                  </div>
+                  <div className="text-xs text-blue-600 mt-2">
+                    * Estimates based on current market state
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex space-x-3">
               <button
