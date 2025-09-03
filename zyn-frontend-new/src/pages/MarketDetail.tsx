@@ -6,6 +6,7 @@ import { usePredictionMarketCore } from '../hooks/usePredictionMarketCore';
 import { usePredictionMarketClaims } from '../hooks/usePredictionMarketClaims';
 import { useMarketParticipants } from '../hooks/useMarketParticipants';
 
+
 import { formatEther, parseEther } from 'viem';
 import { UserSharesDisplay } from '../components/UserSharesDisplay';
 import type { MarketWithUserShares } from '../types/contracts';
@@ -40,13 +41,71 @@ const MarketDetail: React.FC = () => {
     totalParticipants,
     refetch: refetchParticipants 
   } = useMarketParticipants(marketId);
+  
+  // Potential winnings - calculated directly to match smart contract logic
+  
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [buyOutcome, setBuyOutcome] = useState<boolean | null>(null);
   const [buyAmount, setBuyAmount] = useState('');
   const [isBuying, setIsBuying] = useState(false);
   const [canClaimWinnings, setCanClaimWinnings] = useState(false);
+  const [potentialWinnings, setPotentialWinnings] = useState<{
+    amount: string;
+    returnPercentage: number;
+  } | null>(null);
 
   const [isClaiming, setIsClaiming] = useState(false);
+
+  // Calculate potential winnings when buy amount or outcome changes
+  useEffect(() => {
+    const calculateWinnings = () => {
+      if (!market || !buyAmount || parseFloat(buyAmount) <= 0 || buyOutcome === null) {
+        setPotentialWinnings(null);
+        return;
+      }
+
+      try {
+        const investmentAmount = parseEther(buyAmount);
+        
+        // Get current market state
+        const currentWinningShares = buyOutcome ? market.totalYes : market.totalNo;
+        const currentLosingShares = buyOutcome ? market.totalNo : market.totalYes;
+        
+        // Calculate new market state after user's purchase
+        const newWinningShares = currentWinningShares + investmentAmount;
+        const newLosingShares = currentLosingShares; // Losing shares don't change
+        
+        // Calculate total winner amount (like smart contract's _calculateTotalWinnerAmount)
+        let totalWinnerAmount = newWinningShares;
+        if (newLosingShares > 0n) {
+          // Creator fee percentage (assuming 15% like in the contract)
+          const creatorFeePercentage = 15n;
+          const creatorFee = (newLosingShares * creatorFeePercentage) / 100n;
+          const platformFee = (newLosingShares * 15n) / 100n;
+          const winnersFromLosers = newLosingShares - creatorFee - platformFee;
+          
+          totalWinnerAmount = newWinningShares + winnersFromLosers;
+        }
+        
+        // Calculate user's share of the total winnings
+        const userWinnings = (totalWinnerAmount * investmentAmount) / newWinningShares;
+        
+        // Calculate return percentage
+        const returnPercentage = investmentAmount > 0n ? 
+          Number((userWinnings - investmentAmount) * 10000n / investmentAmount) / 100 : 0;
+        
+        setPotentialWinnings({
+          amount: formatEther(userWinnings),
+          returnPercentage: returnPercentage
+        });
+      } catch (error) {
+        console.error('Error calculating potential winnings:', error);
+        setPotentialWinnings(null);
+      }
+    };
+
+    calculateWinnings();
+  }, [market, buyAmount, buyOutcome]);
 
   // Find market by ID
   useEffect(() => {
@@ -134,7 +193,7 @@ const MarketDetail: React.FC = () => {
 
   // Buy shares handler
   const handleBuyShares = async () => {
-    if (!market || !buyAmount || !buyOutcome || parseFloat(buyAmount) <= 0) return;
+    if (!market || !buyAmount || buyOutcome === null || parseFloat(buyAmount) <= 0) return;
 
     try {
       setIsBuying(true);
@@ -376,23 +435,23 @@ const MarketDetail: React.FC = () => {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Category:</span>
-                      <span className="font-medium">{market.category}</span>
+                      <span className="font-medium text-gray-900">{market.category}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Creator:</span>
-                      <span className="font-medium font-mono text-xs">
+                      <span className="font-medium text-gray-900 font-mono text-xs">
                         {market.creator.slice(0, 6)}...{market.creator.slice(-4)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">End Time:</span>
-                      <span className="font-medium">
+                      <span className="font-medium text-gray-900">
                         {new Date(Number(market.endTime) * 1000).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Total Volume:</span>
-                      <span className="font-medium">
+                      <span className="font-medium text-gray-900">
                         {formatEther(market.totalYes + market.totalNo)} CELO
                       </span>
                     </div>
@@ -630,6 +689,27 @@ const MarketDetail: React.FC = () => {
                 </div>
               )}
 
+              {/* Potential Winnings Preview */}
+              {potentialWinnings && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <h4 className="font-medium text-green-900 mb-2">Potential Winnings Preview</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-green-700">If you win:</span>
+                      <span className="font-medium text-green-900">
+                        {potentialWinnings.amount} CELO
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-700">Return:</span>
+                      <span className="font-medium text-green-900">
+                        {potentialWinnings.returnPercentage > 0 ? '+' : ''}{potentialWinnings.returnPercentage.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex space-x-3">
                 <button
                   onClick={closeBuyModal}
@@ -641,6 +721,7 @@ const MarketDetail: React.FC = () => {
                 <button
                   onClick={handleBuyShares}
                   disabled={isBuying || !buyAmount || parseFloat(buyAmount) <= 0}
+                  Shares Breakdown
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                 >
                   {isBuying ? (

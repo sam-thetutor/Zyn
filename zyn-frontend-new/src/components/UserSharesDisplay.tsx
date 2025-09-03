@@ -113,49 +113,89 @@ export const UserSharesDisplay: React.FC<UserSharesDisplayProps> = ({
 
       {/* Shares Breakdown */}
       <div className="space-y-4">
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-3">Shares Breakdown</h4>
-          <div className="space-y-3">
-            {/* YES Shares */}
-            {userShares.yesShares > 0n && (
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-green-500 rounded-full mr-3"></div>
-                  <span className="font-medium text-green-800">YES Shares</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-green-900">
-                    {formatEther(userShares.yesShares)} CELO
-                  </div>
-                  <div className="text-sm text-green-600">
-                    {yesPercentage.toFixed(1)}% of your investment
-                  </div>
-                </div>
+        {/* Potential Winnings */}
+        {userShares.yesShares > 0n && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="font-medium text-green-900 mb-3">Potential Winnings (YES)</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-green-700">If YES wins:</span>
+                <span className="font-medium text-green-900">
+                  {(() => {
+                    try {
+                      const userYesShares = userShares.yesShares;
+                      const totalYesShares = market.totalYes;
+                      const totalNoShares = market.totalNo;
+                      
+                      if (totalNoShares === 0n) {
+                        return `${formatEther(userYesShares)} CELO`;
+                      }
+                      
+                      // Calculate total winner amount (like smart contract)
+                      const creatorFeePercentage = 15n;
+                      const creatorFee = (totalNoShares * creatorFeePercentage) / 100n;
+                      const platformFee = (totalNoShares * 15n) / 100n;
+                      const winnersFromLosers = totalNoShares - creatorFee - platformFee;
+                      const totalWinnerAmount = totalYesShares + winnersFromLosers;
+                      
+                      // Calculate user's share
+                      const userWinnings = (totalWinnerAmount * userYesShares) / totalYesShares;
+                      const returnPercentage = userYesShares > 0n ? 
+                        Number((userWinnings - userYesShares) * 10000n / userYesShares) / 100 : 0;
+                      
+                      return `${formatEther(userWinnings)} CELO (${returnPercentage > 0 ? '+' : ''}${returnPercentage.toFixed(2)}%)`;
+                    } catch {
+                      return 'Calculating...';
+                    }
+                  })()}
+                </span>
               </div>
-            )}
-
-            {/* NO Shares */}
-            {userShares.noShares > 0n && (
-              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-red-500 rounded-full mr-3"></div>
-                  <span className="font-medium text-red-800">NO Shares</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-red-900">
-                    {formatEther(userShares.noShares)} CELO
-                  </div>
-                  <div className="text-sm text-red-600">
-                    {noPercentage.toFixed(1)}% of your investment
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {userShares.noShares > 0n && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <h4 className="font-medium text-red-900 mb-3">Potential Winnings (NO)</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-red-700">If NO wins:</span>
+                <span className="font-medium text-red-900">
+                  {(() => {
+                    try {
+                      const userNoShares = userShares.noShares;
+                      const totalYesShares = market.totalYes;
+                      const totalNoShares = market.totalNo;
+                      
+                      if (totalYesShares === 0n) {
+                        return `${formatEther(userNoShares)} CELO`;
+                      }
+                      
+                      // Calculate total winner amount (like smart contract)
+                      const creatorFeePercentage = 15n;
+                      const creatorFee = (totalYesShares * creatorFeePercentage) / 100n;
+                      const platformFee = (totalYesShares * 15n) / 100n;
+                      const winnersFromLosers = totalYesShares - creatorFee - platformFee;
+                      const totalWinnerAmount = totalNoShares + winnersFromLosers;
+                      
+                      // Calculate user's share
+                      const userWinnings = (totalWinnerAmount * userNoShares) / totalNoShares;
+                      const returnPercentage = userNoShares > 0n ? 
+                        Number((userWinnings - userNoShares) * 10000n / userNoShares) / 100 : 0;
+                      
+                      return `${formatEther(userWinnings)} CELO (${returnPercentage > 0 ? '+' : ''}${returnPercentage.toFixed(2)}%)`;
+                    } catch {
+                      return 'Calculating...';
+                    }
+                  })()}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Market Context */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start space-x-3">
             <div className="text-blue-600 text-xl">ℹ️</div>
             <div className="text-sm">
@@ -168,7 +208,7 @@ export const UserSharesDisplay: React.FC<UserSharesDisplayProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
