@@ -89,6 +89,7 @@ interface UsePredictionMarketCoreReturn {
   getUserShares: (marketId: bigint, userAddress: string, outcome: boolean) => Promise<number>;
   getUsername: (userAddress: string) => Promise<string>;
   isUsernameAvailable: (username: string) => Promise<boolean>;
+  getMarketLogs: (marketId: bigint) => Promise<any[]>;
   
   // Utility functions
   formatEtherValue: (value: bigint | undefined) => string;
@@ -305,8 +306,16 @@ export function usePredictionMarketCore(selectedChainId?: number): UsePrediction
       await ensureCorrectChain();
       await new Promise(resolve => setTimeout(resolve, 500));
 
+      // Ensure we have a valid chainId and contract address
+      const finalChainId = chainId || fallbackChainId || celo.id;
+      const contractConfig = getCoreContractConfig(finalChainId);
+      
+      if (contractConfig.address === '0x0000000000000000000000000000000000000000') {
+        throw new Error(`No contract deployed on current network. Please switch to Celo Mainnet or Base Mainnet.`);
+      }
+
       const hash = await writeContractAsync({
-        ...getCoreContractConfig(chainId),
+        ...contractConfig,
         functionName: 'createMarket',
         args: [
           params.question,
@@ -325,7 +334,6 @@ export function usePredictionMarketCore(selectedChainId?: number): UsePrediction
       updateState({ isLoading: false, success: true });
 
       // Submit referral asynchronously
-      const finalChainId = chainId || fallbackChainId || celo.id;
       submitDivviReferral(hash as Hex, finalChainId).catch(() => {});
 
       return { success: true, transactionHash: hash };
@@ -703,6 +711,61 @@ export function usePredictionMarketCore(selectedChainId?: number): UsePrediction
     }
   }, [defaultChainId]);
 
+  const getMarketLogs = useCallback(async (marketId: bigint): Promise<any[]> => {
+    try {
+      const client = createPublicClient({
+        chain: defaultChainId === base.id ? base : celo,
+        transport: http()
+      });
+
+      const currentBlock = await client.getBlockNumber();
+      const fromBlock = currentBlock - BigInt(100000); // Get logs from last ~100k blocks
+      
+      // Get SharesBought events for this market
+      const logs = await client.getLogs({
+        address: getCoreContractConfig(defaultChainId).address,
+        event: {
+          type: 'event',
+          name: 'SharesBought',
+          inputs: [
+            { name: 'marketId', type: 'uint256', indexed: true },
+            { name: 'buyer', type: 'address', indexed: true },
+            { name: 'side', type: 'bool', indexed: false },
+            { name: 'amount', type: 'uint256', indexed: false }
+          ]
+        },
+        args: {
+          marketId: marketId
+        },
+        fromBlock,
+        toBlock: currentBlock
+      });
+
+      // Transform logs to include timestamp
+      const logsWithTimestamp = await Promise.all(
+        logs.map(async (log) => {
+          const block = await client.getBlock({ blockNumber: log.blockNumber });
+          return {
+            ...log,
+            timestamp: Number(block.timestamp),
+            eventName: 'SharesBought',
+            args: {
+              marketId: log.args.marketId,
+              buyer: log.args.buyer,
+              side: log.args.side,
+              amount: log.args.amount
+            }
+          };
+        })
+      );
+
+      return logsWithTimestamp;
+    } catch (error: any) {
+      console.error('Error fetching market logs:', error);
+      return [];
+    }
+  }, [defaultChainId]);
+
   // Utility functions
   const formatEtherValue = useCallback((value: bigint | undefined): string => {
     if (!value) return '0';
@@ -746,6 +809,7 @@ export function usePredictionMarketCore(selectedChainId?: number): UsePrediction
     getUserShares,
     getUsername,
     isUsernameAvailable,
+    getMarketLogs,
     
     // Utility functions
     formatEtherValue,
