@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useAccount } from 'wagmi';
+import { DIVVI_CONSUMER_ADDRESS } from '../utils/constants';
 
 interface ReferralContextType {
   referralCode: string | null;
@@ -32,7 +33,6 @@ interface ReferralAction {
 const ReferralContext = createContext<ReferralContextType | undefined>(undefined);
 
 // Divvi consumer address
-const DIVVI_CONSUMER_ADDRESS = '0x21D654daaB0fe1be0e584980ca7C1a382850939f';
 
 export const ReferralProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { address } = useAccount();

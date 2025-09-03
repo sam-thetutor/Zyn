@@ -5,6 +5,7 @@ import { useEventsStore } from '../stores/eventsStore';
 import { useReferral } from '../contexts/ReferralContext';
 import ReferralLink from '../components/ReferralLink';
 import NotificationContainer from '../components/NotificationContainer';
+import { CreatorFeeClaim } from '../components/CreatorFeeClaim';
 import { formatEther } from 'viem';
 import { Link } from 'react-router-dom';
 
@@ -367,8 +368,12 @@ const Profile: React.FC = () => {
                           )}
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                            Active
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            log.args.status === 1 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {log.args.status === 1 ? 'Resolved' : 'Active'}
                           </span>
                           <Link
                             to={`/market/${log.args.marketId?.toString()}`}
@@ -378,6 +383,13 @@ const Profile: React.FC = () => {
                           </Link>
                         </div>
                       </div>
+                      
+                      {/* Creator Fee Claim Component */}
+                      <CreatorFeeClaim
+                        marketId={BigInt(log.args.marketId?.toString() || '0')}
+                        marketQuestion={log.args.question}
+                        className="mt-3"
+                      />
                     </div>
                   ))}
               </div>

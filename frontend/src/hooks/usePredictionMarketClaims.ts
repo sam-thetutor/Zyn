@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { formatEther, parseEther } from 'viem';
+import { formatEther, parseEther, encodeFunctionData } from 'viem';
 import { useContractAddress } from './useContractAddress.ts';
 import useViemHook from './useViemHook';
 import type { WinnerInfo } from '../utils/contracts';
+import { DIVVI_CONSUMER_ADDRESS } from '../utils/constants';
 import { getReferralTag, submitReferral } from '@divvi/referral-sdk';
 
 export const usePredictionMarketClaims = () => {
@@ -66,19 +67,26 @@ export const usePredictionMarketClaims = () => {
       // Generate referral tag
       const referralTag = getReferralTag({
         user: userAddress as `0x${string}`,
-        consumer: '0x21D654daaB0fe1be0e584980ca7C1a382850939f',
+        consumer: DIVVI_CONSUMER_ADDRESS,
       });
 
       console.log(`Executing claims ${functionName} with referral tag:`, referralTag);
 
-      // Execute transaction
-      const txHash = await walletClient.writeContract({
-        address: claimsContractAddress as `0x${string}`,
+      // Encode the contract function call
+      const contractData = encodeFunctionData({
         abi: claimsContractABI as any,
-        account: userAddress as `0x${string}`,
         functionName,
         args,
       });
+
+      // Execute transaction with referral tag appended to data
+      const txHash = await walletClient.sendTransaction({
+        account: userAddress as `0x${string}`,
+        to: claimsContractAddress as `0x${string}`,
+        data: (contractData + referralTag) as `0x${string}`,
+      });
+
+      console.log(`Claims transaction hash:`, txHash);
 
       setHash(txHash);
       setIsPending(false);
@@ -87,6 +95,13 @@ export const usePredictionMarketClaims = () => {
       // Wait for transaction receipt
       const receipt = await publicClient.waitForTransactionReceipt({
         hash: txHash,
+      });
+
+      // Get chain ID and submit the referral
+      const chainId = await walletClient.getChainId();
+      await submitReferral({
+        txHash: txHash,
+        chainId: chainId,
       });
 
       setIsConfirming(false);

@@ -170,19 +170,21 @@ export const usePotentialWinnings = () => {
       }
 
       // Calculate return percentage
-      const returnPercentage = Number(breakdown.userShares) > 0 
-        ? Number((breakdown.userWinnings - breakdown.userShares) * 10000n / breakdown.userShares) / 100
+      const userShares = breakdown.userShares || 0n;
+      const userWinnings = breakdown.userWinnings || 0n;
+      const returnPercentage = Number(userShares) > 0 
+        ? Number((userWinnings - userShares) * 10000n / userShares) / 100
         : 0;
 
       return {
-        userShares: breakdown.userShares,
-        totalWinningShares: breakdown.totalWinningShares,
-        totalLosingShares: breakdown.totalLosingShares,
-        userWinnings: breakdown.userWinnings,
+        userShares: breakdown.userShares || 0n,
+        totalWinningShares: breakdown.totalWinningShares || 0n,
+        totalLosingShares: breakdown.totalLosingShares || 0n,
+        userWinnings: breakdown.userWinnings || 0n,
         creatorFee: 0n, // This would need to be calculated separately
         platformFee: 0n, // This would need to be calculated separately
-        winnersFromLosers: breakdown.userWinnings - breakdown.userShares,
-        hasLosingShares: breakdown.hasLosingShares,
+        winnersFromLosers: (breakdown.userWinnings || 0n) - (breakdown.userShares || 0n),
+        hasLosingShares: breakdown.hasLosingShares || false,
         returnPercentage
       };
 
@@ -213,7 +215,8 @@ export const usePotentialWinnings = () => {
   }, [calculatePotentialWinnings]);
 
   // Utility function to format winnings for display
-  const formatWinnings = useCallback((winnings: bigint): string => {
+  const formatWinnings = useCallback((winnings: bigint | undefined | null): string => {
+    if (!winnings) return '0';
     return formatEther(winnings);
   }, []);
 

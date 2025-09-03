@@ -2,7 +2,8 @@ import { useCallback, useMemo, useEffect, useState } from 'react';
 import { formatEther, parseEther, encodeFunctionData } from 'viem';
 import { useContractAddress } from './useContractAddress.ts';
 import useViemHook from './useViemHook.ts';
-import type { Market, MarketStatus, UserParticipation } from '../utils/contracts';
+import type { Market, MarketStatus, UserParticipation, CreatorFeeData } from '../utils/contracts';
+import { DIVVI_CONSUMER_ADDRESS } from '../utils/constants';
 import { getReferralTag, submitReferral } from '@divvi/referral-sdk';
 
 
@@ -100,7 +101,7 @@ export const usePredictionMarketCore = () => {
       // Generate referral tag
       const referralTag = getReferralTag({
         user: userAddress as `0x${string}`,
-        consumer: '0x21D654daaB0fe1be0e584980ca7C1a382850939f',
+        consumer: DIVVI_CONSUMER_ADDRESS,
       });
 
       console.log(`Executing ${functionName} with referral tag:`, referralTag);
@@ -272,6 +273,42 @@ export const usePredictionMarketCore = () => {
       throw error;
     }
   }, [coreContractAddress, coreContractABI, publicClient]);
+
+  // Get creator fee info for a market
+  const getCreatorFeeInfo = useCallback(async (marketId: bigint) => {
+    if (!coreContractAddress || !coreContractABI || !publicClient) {
+      throw new Error('Core contract not found');
+    }
+
+    try {
+      const feeInfo = await publicClient.readContract({
+        address: coreContractAddress as `0x${string}`,
+        abi: coreContractABI as any,
+        functionName: 'getCreatorFeeInfo',
+        args: [marketId],
+      });
+
+      // The contract returns (address creator, uint256 fee, bool claimed)
+      const [creator, fee, claimed] = feeInfo as [string, bigint, boolean];
+      
+      return {
+        creator,
+        fee,
+        claimed
+      } as CreatorFeeData;
+    } catch (error) {
+      console.error('Error fetching creator fee info:', error);
+      throw error;
+    }
+  }, [coreContractAddress, coreContractABI, publicClient]);
+
+  // Claim creator fee
+  const claimCreatorFee = useCallback(async (marketId: bigint) => {
+    return executeTransaction(
+      'claimCreatorFee',
+      [marketId]
+    );
+  }, [executeTransaction]);
 
   // Get user participation - Requires wallet connection
   const getUserParticipation = useCallback(async (marketId: bigint, userAddress: string): Promise<UserParticipation | null> => {
@@ -454,10 +491,14 @@ export const usePredictionMarketCore = () => {
     // Read functions (async)
     getMarket,
     getMarketMetadata,
+    getCreatorFeeInfo,
     getUserParticipation,
     getUserShares,
     getUsername,
     isUsernameAvailable,
+    
+    // Write functions
+    claimCreatorFee,
     
     // Utility functions
     formatEtherValue,

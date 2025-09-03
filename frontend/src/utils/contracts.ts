@@ -747,21 +747,19 @@ export const PREDICTION_MARKET_CORE_ABI = [
     "name": "getCreatorFeeInfo",
     "outputs": [
       {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "creatorFee",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bool",
-            "name": "creatorFeeClaimed",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct PredictionMarketCore.CreatorFeeData",
-        "name": "",
-        "type": "tuple"
+        "internalType": "address",
+        "name": "creator",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "fee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "claimed",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -1062,8 +1060,9 @@ export interface MarketMetadata {
 }
 
 export interface CreatorFeeData {
-  creatorFee: bigint;
-  creatorFeeClaimed: boolean;
+  creator: string;
+  fee: bigint;
+  claimed: boolean;
 }
 
 export const MarketStatus = {

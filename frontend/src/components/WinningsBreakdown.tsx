@@ -69,7 +69,7 @@ export const WinningsBreakdownComponent: React.FC<WinningsBreakdownProps> = ({
     );
   }
 
-  if (!breakdown) {
+  if (!breakdown || !breakdown.userShares || !breakdown.userWinnings) {
     return (
       <div className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${className}`}>
         <div className="text-center py-8">
@@ -81,8 +81,8 @@ export const WinningsBreakdownComponent: React.FC<WinningsBreakdownProps> = ({
     );
   }
 
-  const totalInvestment = breakdown.userShares;
-  const totalWinnings = breakdown.userWinnings;
+  const totalInvestment = breakdown.userShares || 0n;
+  const totalWinnings = breakdown.userWinnings || 0n;
   const profit = totalWinnings - totalInvestment;
 
   return (

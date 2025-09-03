@@ -137,3 +137,6 @@ export const SUCCESS_MESSAGES = {
 } as const;
 
 export const changeFeeData = 10000000000000000
+
+// Divvi Integration
+export const DIVVI_CONSUMER_ADDRESS = '0x21D654daaB0fe1be0e584980ca7C1a382850939f';
