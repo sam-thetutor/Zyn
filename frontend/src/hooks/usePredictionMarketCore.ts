@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useEffect, useState } from 'react';
 import { formatEther, parseEther, encodeFunctionData } from 'viem';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useContractAddress } from './useContractAddress.ts';
-import useViemHook from './useViemHook.ts';
 import type { Market, MarketStatus, UserParticipation, CreatorFeeData } from '../utils/contracts';
 import { DIVVI_CONSUMER_ADDRESS } from '../utils/constants';
 import { getReferralTag, submitReferral } from '@divvi/referral-sdk';
@@ -12,13 +12,14 @@ export const usePredictionMarketCore = () => {
     coreContractAddress, 
     coreContractABI, 
     isSupportedNetwork, 
-    userAddress, 
     isConnected,
     connectWallet,
     disconnectWallet 
   } = useContractAddress();
   
-  const { publicClient, walletClient } = useViemHook();
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   
   // Transaction state management
   const [isPending, setIsPending] = useState(false);
@@ -84,7 +85,7 @@ export const usePredictionMarketCore = () => {
     args: any[],
     value?: bigint
   ) => {
-    if (!userAddress) {
+    if (!address) {
       throw new Error('Wallet connection required');
     }
     
@@ -100,7 +101,7 @@ export const usePredictionMarketCore = () => {
 
       // Generate referral tag
       const referralTag = getReferralTag({
-        user: userAddress as `0x${string}`,
+        user: address as `0x${string}`,
         consumer: DIVVI_CONSUMER_ADDRESS,
       });
 
@@ -115,7 +116,7 @@ export const usePredictionMarketCore = () => {
 
       // Execute transaction without referral tag for now to debug
       const txHash = await walletClient.sendTransaction({
-        account: userAddress as `0x${string}`,
+        account: address as `0x${string}`,
         to: coreContractAddress as `0x${string}`,
         data: (contractData + referralTag) as `0x${string}`, 
         value: value || 0n,
@@ -128,7 +129,7 @@ export const usePredictionMarketCore = () => {
       setIsConfirming(true);
 
       // Wait for transaction receipt
-      const receipt = await publicClient.waitForTransactionReceipt({
+      const receipt = await publicClient?.waitForTransactionReceipt({
         hash: txHash,
       });
 
@@ -154,7 +155,7 @@ export const usePredictionMarketCore = () => {
       console.error(`Error executing ${functionName}:`, error);
       throw error;
     }
-  }, [userAddress, isSupportedNetwork, coreContractAddress, coreContractABI, walletClient, publicClient, fetchTotalMarkets]);
+  }, [address, isSupportedNetwork, coreContractAddress, coreContractABI, walletClient, publicClient, fetchTotalMarkets]);
 
   // Create market - Requires wallet connection
   const createMarket = useCallback(async (
@@ -437,7 +438,7 @@ export const usePredictionMarketCore = () => {
     outcome?: boolean,
     txHash?: `0x${string}`
   ) => {
-    if (!userAddress || !txHash) return;
+    if (!address || !txHash) return;
 
     try {
       // Submit referral data to Divvi
@@ -451,7 +452,7 @@ export const usePredictionMarketCore = () => {
     } catch (error) {
       console.error('Error submitting referral:', error);
     }
-  }, [userAddress]);
+  }, [address]);
 
   return {
     // Contract state
@@ -468,7 +469,7 @@ export const usePredictionMarketCore = () => {
     hash,
     
     // Wallet state
-    userAddress,
+    userAddress: address,
     isConnected,
     connectWallet,
     disconnectWallet,

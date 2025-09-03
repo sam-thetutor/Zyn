@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import WalletConnectButton from './WalletConnectButton';
+import WalletConnectButton from '../wallet/WalletConnectButton';
 
 const Header: React.FC = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-
 
   const isActiveLink = (path: string) => {
     return location.pathname === path;

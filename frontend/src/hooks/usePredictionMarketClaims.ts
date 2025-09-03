@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatEther, parseEther, encodeFunctionData } from 'viem';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useContractAddress } from './useContractAddress.ts';
-import useViemHook from './useViemHook';
 import type { WinnerInfo } from '../utils/contracts';
 import { DIVVI_CONSUMER_ADDRESS } from '../utils/constants';
 import { getReferralTag, submitReferral } from '@divvi/referral-sdk';
@@ -11,11 +11,12 @@ export const usePredictionMarketClaims = () => {
     claimsContractAddress, 
     claimsContractABI, 
     isSupportedNetwork, 
-    userAddress, 
     isConnected 
   } = useContractAddress();
   
-  const { publicClient, walletClient } = useViemHook();
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   
   // Transaction state management
   const [isPending, setIsPending] = useState(false);
@@ -28,7 +29,7 @@ export const usePredictionMarketClaims = () => {
 
   // Handle referral submission when transaction succeeds
   useEffect(() => {
-    if (isSuccess && hash && userAddress) {
+    if (isSuccess && hash && address) {
       const submitReferralData = async () => {
         try {
           await submitReferral({
@@ -43,14 +44,14 @@ export const usePredictionMarketClaims = () => {
       
       submitReferralData();
     }
-  }, [isSuccess, hash, userAddress]);
+  }, [isSuccess, hash, address]);
 
   // Generic transaction handler for claims
   const executeClaimsTransaction = useCallback(async (
     functionName: string,
     args: any[]
   ) => {
-    if (!userAddress) {
+    if (!address) {
       throw new Error('Wallet connection required');
     }
     
@@ -66,7 +67,7 @@ export const usePredictionMarketClaims = () => {
 
       // Generate referral tag
       const referralTag = getReferralTag({
-        user: userAddress as `0x${string}`,
+        user: address as `0x${string}`,
         consumer: DIVVI_CONSUMER_ADDRESS,
       });
 
@@ -81,7 +82,7 @@ export const usePredictionMarketClaims = () => {
 
       // Execute transaction with referral tag appended to data
       const txHash = await walletClient.sendTransaction({
-        account: userAddress as `0x${string}`,
+        account: address as `0x${string}`,
         to: claimsContractAddress as `0x${string}`,
         data: (contractData + referralTag) as `0x${string}`,
       });
@@ -93,7 +94,7 @@ export const usePredictionMarketClaims = () => {
       setIsConfirming(true);
 
       // Wait for transaction receipt
-      const receipt = await publicClient.waitForTransactionReceipt({
+      const receipt = await publicClient?.waitForTransactionReceipt({
         hash: txHash,
       });
 
@@ -115,7 +116,7 @@ export const usePredictionMarketClaims = () => {
       console.error(`Error executing claims ${functionName}:`, error);
       throw error;
     }
-  }, [userAddress, isSupportedNetwork, claimsContractAddress, claimsContractABI, walletClient, publicClient]);
+  }, [address, isSupportedNetwork, claimsContractAddress, claimsContractABI, walletClient, publicClient]);
 
   // Calculate winners for a market
   const calculateWinners = useCallback(async (marketId: bigint) => {
@@ -302,7 +303,7 @@ export const usePredictionMarketClaims = () => {
     hash,
     
     // Wallet state
-    userAddress,
+    userAddress: address,
     isConnected,
     
     // Write functions

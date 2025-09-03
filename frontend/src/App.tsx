@@ -1,14 +1,15 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { config } from './config/wagmi';
+import { wagmiConfig } from './config/wallet';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ReferralProvider } from './contexts/ReferralContext';
-import { MiniAppProvider } from './contexts/MiniAppContext';
-import { useInitializeEvents } from './hooks/useInitializeEvents';
+// import { FarcasterProvider } from './components/FarcasterProvider';
+import MiniAppWrapper from './components/MiniAppWrapper';
+import AppKitProvider from './components/AppKitProvider';
+import AccountModalProvider from './components/AccountModalProvider';
 import Header from './components/Header';
 import Footer from './components/Footer';
-import { MiniAppIndicator } from './components/MiniAppIndicator';
 import Home from './pages/Home';
 import Markets from './pages/Markets';
 import MarketDetail from './pages/MarketDetail';
@@ -22,40 +23,38 @@ import Leaderboard from './pages/Leaderboard';
 const queryClient = new QueryClient();
 
 function App() {
-  
-  // Initialize events store and fetch data
-  useInitializeEvents();
-
   return (
     <QueryClientProvider client={queryClient}>
-      <WagmiProvider config={config}>
-        <MiniAppProvider>
-          <NotificationProvider>
-            <ReferralProvider>
-              <Router>
-                <div className="min-h-screen bg-gray-100 flex flex-col">
-                  <MiniAppIndicator />
-                  <Header />
-                  <main className="flex-1">
-                    <div className="max-w-[1280px] mx-auto">
-                      <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/markets" element={<Markets />} />
-                        <Route path="/market/:id" element={<MarketDetail />} />
-                        <Route path="/create-market" element={<CreateMarket />} />
-                        <Route path="/profile" element={<Profile />} />
-                        <Route path="/admin" element={<Admin />} />
-                        <Route path="/leaderboard" element={<Leaderboard />} />
-                      </Routes>
+      <WagmiProvider config={wagmiConfig}>
+        <MiniAppWrapper>
+          <AppKitProvider>
+            <NotificationProvider>
+              <ReferralProvider>
+                <AccountModalProvider>
+                  <Router>
+                    <div className="min-h-screen bg-gray-100 flex flex-col">
+                      <Header />
+                      <main className="flex-1">
+                        <div className="max-w-[1280px] mx-auto">
+                          <Routes>
+                            <Route path="/" element={<Home />} />
+                            <Route path="/markets" element={<Markets />} />
+                            <Route path="/market/:id" element={<MarketDetail />} />
+                            <Route path="/create-market" element={<CreateMarket />} />
+                            <Route path="/profile" element={<Profile />} />
+                            <Route path="/admin" element={<Admin />} />
+                            <Route path="/leaderboard" element={<Leaderboard />} />
+                          </Routes>
+                        </div>
+                      </main>
+                      <Footer />
                     </div>
-                  </main>
-                  <Footer />
-                  {/* <GlobalActivityFeed /> */}
-                </div>
-              </Router>
-            </ReferralProvider>
-          </NotificationProvider>
-        </MiniAppProvider>
+                  </Router>
+                </AccountModalProvider>
+              </ReferralProvider>
+            </NotificationProvider>
+          </AppKitProvider>
+        </MiniAppWrapper>
       </WagmiProvider>
     </QueryClientProvider>
   );

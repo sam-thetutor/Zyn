@@ -1,30 +1,21 @@
 import React, { useState } from 'react';
 import MarketCard from '../components/MarketCard';
 import { useMarkets } from '../hooks/useMarkets';
-// import { useAccount } from 'wagmi';
 import ReferralBanner from '../components/ReferralBanner';
-import NotificationContainer from '../components/NotificationContainer';
 
 const Markets: React.FC = () => {
-  // const { isConnected } = useAccount();
   const {
     markets,
-    // allMarkets,
     loading,
     error,
     currentPage,
     totalPages,
     searchTerm,
     selectedCategory,
-    // selectedSubCategory,
-    // volumeFilter,
     sortBy,
     categories,
-    // subCategories,
     setSearchTerm,
     setSelectedCategory,
-    // setSelectedSubCategory,
-    // setVolumeFilter,
     setSortBy,
     setCurrentPage,
     refetchMarkets,
@@ -178,13 +169,6 @@ const Markets: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Market Count */}
-            {/* <div className="text-center mb-6">
-              <p className="text-gray-600">
-                Showing {markets.length} of {totalMarkets} markets
-              </p>
-            </div> */}
-
             {/* Markets Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
               {markets.map((market) => (
@@ -219,13 +203,6 @@ const Markets: React.FC = () => {
           </>
         )}
       </div>
-
-      {/* Create Market CTA */}
-      {/* <div className="text-center">
-        <button className="bg-green-600 text-white px-8 py-3 rounded-lg text-lg font-medium hover:bg-green-700 transition-colors">
-          Create New Market
-        </button>
-      </div> */}
 
       {/* Mobile Filter Sidebar */}
       {isFilterModalOpen && (
@@ -307,7 +284,6 @@ const Markets: React.FC = () => {
           </div>
         </div>
       )}
-      <NotificationContainer />
     </div>
   );
 };
