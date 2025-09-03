@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useConnect, useAccount } from 'wagmi';
-import { useMiniApp } from '../hooks/useMiniApp';
+import { useMiniApp } from '../contexts/MiniAppContext';
 
 const ConnectWallet: React.FC = () => {
   const { connect, connectors, isPending } = useConnect();

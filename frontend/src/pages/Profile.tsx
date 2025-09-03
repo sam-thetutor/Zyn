@@ -3,6 +3,7 @@ import { useAccount, useBalance } from 'wagmi';
 import { useEventsStore } from '../stores/eventsStore';
 // import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
 import { useReferral } from '../contexts/ReferralContext';
+import { useMiniApp } from '../contexts/MiniAppContext';
 import ReferralLink from '../components/ReferralLink';
 import NotificationContainer from '../components/NotificationContainer';
 import { CreatorFeeClaim } from '../components/CreatorFeeClaim';
@@ -12,6 +13,12 @@ import { Link } from 'react-router-dom';
 const Profile: React.FC = () => {
   const { isConnected, address } = useAccount();
   const { referralStats } = useReferral();
+  const { 
+    isMiniApp, 
+    farcasterUser, 
+    addToFarcaster,
+    triggerHaptic
+  } = useMiniApp();
   
   // Fetch Celo balance
   const { data: balance, isLoading: balanceLoading } = useBalance({
@@ -57,10 +64,13 @@ const Profile: React.FC = () => {
         <div className="max-w-4xl mx-auto text-center">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-xl font-semibold text-yellow-800 mb-2">
-              Wallet Not Connected
+              {isMiniApp ? 'Embedded Wallet Not Connected' : 'Wallet Not Connected'}
             </h2>
             <p className="text-yellow-700">
-              Please connect your wallet to view your profile and activities.
+              {isMiniApp 
+                ? 'The embedded wallet is not connected. Please try refreshing the app.'
+                : 'Please connect your wallet to view your profile and activities.'
+              }
             </p>
           </div>
         </div>
@@ -141,19 +151,55 @@ const Profile: React.FC = () => {
             <div className="mb-4 md:mb-0">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Profile</h1>
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                  {address.slice(2, 4).toUpperCase()}
-                </div>
+                {isMiniApp && farcasterUser?.pfpUrl ? (
+                  <img 
+                    src={farcasterUser.pfpUrl} 
+                    alt="Profile" 
+                    className="w-12 h-12 rounded-full"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                    {address.slice(2, 4).toUpperCase()}
+                  </div>
+                )}
                 <div>
-                  <p className="text-lg font-medium text-gray-900">
-                    {shortenAddress(address)}
-                  </p>
-                  <p className="text-sm text-gray-500">Connected Wallet</p>
+                  {isMiniApp && farcasterUser ? (
+                    <>
+                      <p className="text-lg font-medium text-gray-900">
+                        {farcasterUser.displayName || farcasterUser.username || `@${farcasterUser.username}`}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Farcaster ID: {farcasterUser.fid} • {shortenAddress(address)}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg font-medium text-gray-900">
+                        {shortenAddress(address)}
+                      </p>
+                      <p className="text-sm text-gray-500">Connected Wallet</p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
             
             <div className="flex space-x-3">
+              {isMiniApp && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await addToFarcaster();
+                      await triggerHaptic('medium');
+                    } catch (error) {
+                      console.error('Failed to add to Farcaster:', error);
+                    }
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Add to Farcaster
+                </button>
+              )}
               <button
                 onClick={() => fetchAllLogs()}
                 disabled={logsLoading}

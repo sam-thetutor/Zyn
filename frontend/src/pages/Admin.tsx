@@ -212,7 +212,7 @@ const Admin: React.FC = () => {
                           <span className="font-medium">Ended:</span> {formatTime(market.endTime)}
                         </div>
                         <div>
-                          <span className="font-medium">Total Pool:</span> {formatPool(market.totalPool)} ETH
+                          <span className="font-medium">Total Pool:</span> {formatPool(market.totalPool)} CELO
                         </div>
                       </div>
                     </div>
@@ -299,7 +299,7 @@ const Admin: React.FC = () => {
                       {formatTime(market.endTime)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatPool(market.totalPool)} ETH
+                      {formatPool(market.totalPool)} CELO
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       {market.status === MarketStatus.ACTIVE && Number(market.endTime) <= Math.floor(Date.now() / 1000) ? (

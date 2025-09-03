@@ -89,7 +89,7 @@ export const usePredictionMarketCore = () => {
     }
     
     if (!isSupportedNetwork || !coreContractAddress || !coreContractABI || !walletClient) {
-      throw new Error('Core contract not found on current network');
+      throw new Error('Core contract not found on current network or wallet not connected');
     }
 
     try {
@@ -113,7 +113,7 @@ export const usePredictionMarketCore = () => {
         args,
       });
 
-      // Execute transaction with referral tag appended to data
+      // Execute transaction without referral tag for now to debug
       const txHash = await walletClient.sendTransaction({
         account: userAddress as `0x${string}`,
         to: coreContractAddress as `0x${string}`,

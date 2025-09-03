@@ -18,7 +18,16 @@
     ],
     "ogTitle": "Zyn",
     "ogDescription": "Create and trade on prediction markets with real-time outcomes",
-    "ogImageUrl": "https://zynp.vercel.app/logo.png"
+    "ogImageUrl": "https://zynp.vercel.app/logo.png",
+    "requiredChains": ["eip155:42220"],
+    "requiredCapabilities": [
+      "wallet.getEthereumProvider",
+      "actions.composeCast",
+      "actions.addMiniApp",
+      "actions.swapToken",
+      "actions.sendToken",
+      "actions.viewToken"
+    ]
   },
   "accountAssociation": {
     "header": "eyJmaWQiOjEwNzg0MTcsInR5cGUiOiJhdXRoIiwia2V5IjoiMHhkMGYzNzhkMzBDNUM5MjAzNDI0NjZkRmFDNzM1MTczMzhjMDI0OTZGIn0",

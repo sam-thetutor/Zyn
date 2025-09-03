@@ -4,7 +4,7 @@ import { useAccount, useBalance } from 'wagmi';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
 import { useEventsStore } from '../stores/eventsStore';
 import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
-import { useMiniApp } from '../hooks/useMiniApp';
+import { useMiniApp } from '../contexts/MiniAppContext';
 import { useReferral } from '../contexts/ReferralContext';
 import ReferralBanner from '../components/ReferralBanner';
 import NotificationContainer from '../components/NotificationContainer';

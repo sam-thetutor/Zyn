@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useMarkets } from "../hooks/useMarkets";
 // import { usePublicClient } from "wagmi";
 import { formatEther } from "viem";
-import { useMiniApp } from "../hooks/useMiniApp";
+import { useMiniApp } from "../contexts/MiniAppContext";
 import NotificationContainer from "../components/NotificationContainer";
 import ReferralBanner from "../components/ReferralBanner";
 import { useEventsStore } from "../stores/eventsStore";
@@ -11,7 +11,7 @@ import { useEventsStore } from "../stores/eventsStore";
 const Home: React.FC = () => {
   const { allMarkets, loading: marketsLoading } = useMarkets();
   // const publicClient = usePublicClient();
-  const { isMiniApp, composeCast, addToFarcaster, triggerHaptic } = useMiniApp();
+  const { isMiniApp, composeCast, triggerHaptic } = useMiniApp();
   const { logs, fetchAllLogs } = useEventsStore();
   const [stats, setStats] = useState({
     totalMarkets: 0,
@@ -126,7 +126,7 @@ const Home: React.FC = () => {
               >
                 📊 Create Market
               </Link>
-              {isMiniApp && (
+              {/* {isMiniApp && (
                 <button
                   onClick={async () => {
                     await triggerHaptic('medium');
@@ -140,7 +140,7 @@ const Home: React.FC = () => {
                 >
                   ⭐ Add to Farcaster
                 </button>
-              )}
+              )} */}
             </div>
 
             {/* Stats Dashboard in Hero */}

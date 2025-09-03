@@ -8,7 +8,7 @@ const embeddedWalletConnector = () => {
 }
 
 export const config = createConfig({
-  chains: [celo, base],
+  chains: [celo, base], // Celo first for Mini App priority
   connectors: [embeddedWalletConnector()],
   transports: {
     [celo.id]: http('https://forno.celo.org', {
@@ -18,4 +18,6 @@ export const config = createConfig({
     }),
     [base.id]: http(),
   },
+  // Default to Celo chain for Mini Apps
+  ssr: false,
 })

@@ -165,10 +165,10 @@ export const useMarkets = () => {
     if (volumeFilter !== 'all') {
       const totalVolume = (market: MarketWithUserShares) => Number(market.totalYes + market.totalNo);
       const volumeThresholds = {
-        low: 0.01,      // 0.01 ETH
-        medium: 0.1,    // 0.1 ETH
-        high: 1,        // 1 ETH
-        veryHigh: 10    // 10 ETH
+        low: 0.01,      // 0.01 CELO
+        medium: 0.1,    // 0.1 CELO
+        high: 1,        // 1 CELO
+        veryHigh: 10    // 10 CELO
       };
 
       filtered = filtered.filter(market => {

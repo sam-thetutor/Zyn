@@ -4,9 +4,11 @@ import { WagmiProvider } from 'wagmi';
 import { config } from './config/wagmi';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ReferralProvider } from './contexts/ReferralContext';
+import { MiniAppProvider } from './contexts/MiniAppContext';
 import { useInitializeEvents } from './hooks/useInitializeEvents';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import { MiniAppIndicator } from './components/MiniAppIndicator';
 import Home from './pages/Home';
 import Markets from './pages/Markets';
 import MarketDetail from './pages/MarketDetail';
@@ -27,30 +29,33 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <WagmiProvider config={config}>
-        <NotificationProvider>
-          <ReferralProvider>
-            <Router>
-              <div className="min-h-screen bg-gray-100 flex flex-col">
-                <Header />
-                <main className="flex-1">
-                  <div className="max-w-[1280px] mx-auto">
-                    <Routes>
-                      <Route path="/" element={<Home />} />
-                      <Route path="/markets" element={<Markets />} />
-                      <Route path="/market/:id" element={<MarketDetail />} />
-                      <Route path="/create-market" element={<CreateMarket />} />
-                      <Route path="/profile" element={<Profile />} />
-                      <Route path="/admin" element={<Admin />} />
-                      <Route path="/leaderboard" element={<Leaderboard />} />
-                    </Routes>
-                  </div>
-                </main>
-                <Footer />
-                {/* <GlobalActivityFeed /> */}
-              </div>
-            </Router>
-          </ReferralProvider>
-        </NotificationProvider>
+        <MiniAppProvider>
+          <NotificationProvider>
+            <ReferralProvider>
+              <Router>
+                <div className="min-h-screen bg-gray-100 flex flex-col">
+                  <MiniAppIndicator />
+                  <Header />
+                  <main className="flex-1">
+                    <div className="max-w-[1280px] mx-auto">
+                      <Routes>
+                        <Route path="/" element={<Home />} />
+                        <Route path="/markets" element={<Markets />} />
+                        <Route path="/market/:id" element={<MarketDetail />} />
+                        <Route path="/create-market" element={<CreateMarket />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/admin" element={<Admin />} />
+                        <Route path="/leaderboard" element={<Leaderboard />} />
+                      </Routes>
+                    </div>
+                  </main>
+                  <Footer />
+                  {/* <GlobalActivityFeed /> */}
+                </div>
+              </Router>
+            </ReferralProvider>
+          </NotificationProvider>
+        </MiniAppProvider>
       </WagmiProvider>
     </QueryClientProvider>
   );

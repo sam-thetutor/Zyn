@@ -117,7 +117,7 @@ export const useNotificationHelpers = () => {
   const notifyInsufficientBalance = () => {
     showError(
       'Insufficient Balance',
-      'You don\'t have enough ETH to complete this transaction. Please check your wallet balance.'
+      'You don\'t have enough CELO to complete this transaction. Please check your wallet balance.'
     );
   };
 

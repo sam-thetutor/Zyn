@@ -17,8 +17,8 @@ export const NETWORKS = {
     name: 'Base Mainnet',
     rpcUrl: import.meta.env.VITE_BASE_RPC_URL || 'https://mainnet.base.org',
     explorer: import.meta.env.VITE_BASESCAN_URL || 'https://basescan.org',
-    currency: 'ETH',
-    currencySymbol: 'ETH',
+    currency: 'CELO',
+    currencySymbol: 'CELO',
   },
 } as const;
 

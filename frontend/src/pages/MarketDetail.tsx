@@ -5,7 +5,7 @@ import { useMarkets } from '../hooks/useMarkets';
 import { useEventsStore } from '../stores/eventsStore';
 import { usePredictionMarket } from '../hooks/usePredictionMarket';
 import { useNotificationHelpers } from '../hooks/useNotificationHelpers';
-import { useMiniApp } from '../hooks/useMiniApp';
+import { useMiniApp } from '../contexts/MiniAppContext';
 import { useReferral } from '../contexts/ReferralContext';
 import NotificationContainer from '../components/NotificationContainer';
 import { MarketEmbedMeta } from '../components/MarketEmbedMeta';
@@ -80,6 +80,7 @@ const MarketDetail: React.FC = () => {
     buyShares, 
     claimWinnings, 
     isSuccess: isBuySuccess, 
+    isError: isBuyError,
     hash: buyHash,
     // Claims transaction states
     isPending: isClaimPending,
@@ -288,6 +289,7 @@ const MarketDetail: React.FC = () => {
       setShowBuyModal(false);
       setBuyAmount('');
       setBuyOutcome(null);
+      setIsBuying(false); // Reset the buying state
       
       // Refresh logs to include the new transaction (with delay to ensure transaction is processed)
       setTimeout(() => {
@@ -380,6 +382,14 @@ const MarketDetail: React.FC = () => {
       }
     }
   }, [isClaimSuccess, claimHash, notifyTransactionSuccess, isMiniApp, market, id, composeCast, triggerNotificationHaptic, referralCode, submitReferral, fetchAllLogs, allLogs, address]);
+
+  // Handle buy shares error
+  useEffect(() => {
+    if (isBuyError) {
+      notifySharesPurchaseFailed('Failed to buy shares. Please try again.');
+      setIsBuying(false);
+    }
+  }, [isBuyError, notifySharesPurchaseFailed]);
 
   // Handle claim winnings error
   useEffect(() => {
@@ -1068,7 +1078,7 @@ const MarketDetail: React.FC = () => {
 
             <div className="mb-4">
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-                Amount to Invest (ETH)
+                Amount to Invest (CELO)
               </label>
               <input
                 type="number"
@@ -1082,7 +1092,7 @@ const MarketDetail: React.FC = () => {
                 disabled={isBuying}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Minimum: 0.001 ETH
+                Minimum: 0.001 CELO
               </p>
             </div>
 
