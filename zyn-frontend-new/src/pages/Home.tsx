@@ -1,16 +1,23 @@
 import React from 'react'
-import { useAppKit } from '@reown/appkit/react'
+import { Link } from 'react-router-dom'
 import { useStats } from '../hooks/useStats'
-import DebugStats from '../components/DebugStats'
+import { useMarkets } from '../hooks/useMarkets'
+import { formatEther } from 'viem'
 
 const Home: React.FC = () => {
-  const { open } = useAppKit()
   const { stats, loading: statsLoading } = useStats()
+  const { allMarkets, loading: marketsLoading } = useMarkets()
+
+  // Get trending markets (most active by volume)
+  const getTrendingMarkets = () => {
+    return allMarkets
+      .filter((m) => m.status === 0 && !m.isEnded) // Only active markets
+      .sort((a, b) => Number(b.totalYes + b.totalNo) - Number(a.totalYes + a.totalNo))
+      .slice(0, 3);
+  };
 
   return (
     <div className="min-h-screen">
-      {/* Debug Component */}
-      {/* <DebugStats /> */}
       
       {/* Hero Section */}
       <div className="relative overflow-hidden h-screen flex items-center justify-center">
@@ -26,17 +33,18 @@ const Home: React.FC = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={() => open()}
+              <Link
+                to="/markets"
                 className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 shadow-lg"
               >
                 🚀 Start Trading Now
-              </button>
-              <button
+              </Link>
+              <Link
+                to="/create-market"
                 className="px-8 py-4 bg-white text-gray-900 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-200 transform hover:scale-105 shadow-lg border-2 border-gray-200"
               >
                 📊 Create Market
-              </button>
+              </Link>
             </div>
 
             {/* Stats Dashboard in Hero */}
@@ -75,6 +83,97 @@ const Home: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Trending Markets Section */}
+      <div className="py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">
+              Trending Markets
+            </h2>
+            <Link
+              to="/markets"
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              View All Markets →
+            </Link>
+          </div>
+          
+          {marketsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse"
+                >
+                  <div className="h-4 bg-gray-200 rounded mb-3"></div>
+                  <div className="h-3 bg-gray-200 rounded mb-4"></div>
+                  <div className="h-6 bg-gray-200 rounded mb-4"></div>
+                  <div className="h-3 bg-gray-200 rounded"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {getTrendingMarkets().map((market) => (
+                <div
+                  key={market.id.toString()}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                >
+                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                    {market.question}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                    {market.description}
+                  </p>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">YES:</span>
+                      <span className="font-medium text-green-600">
+                        {market.totalYes > 0n || market.totalNo > 0n
+                          ? `${(
+                              (Number(market.totalYes) /
+                                (Number(market.totalYes) +
+                                  Number(market.totalNo))) *
+                              100
+                            ).toFixed(1)}%`
+                          : "50.0%"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">NO:</span>
+                      <span className="font-medium text-red-600">
+                        {market.totalYes > 0n || market.totalNo > 0n
+                          ? `${(
+                              (Number(market.totalNo) /
+                                (Number(market.totalYes) +
+                                  Number(market.totalNo))) *
+                              100
+                            ).toFixed(1)}%`
+                          : "50.0%"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
+                    <span>Pool: {formatEther(market.totalYes + market.totalNo)} CELO</span>
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                      {market.category}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link
+                      to={`/market/${market.id}`}
+                      className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-center block"
+                    >
+                      View Market
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

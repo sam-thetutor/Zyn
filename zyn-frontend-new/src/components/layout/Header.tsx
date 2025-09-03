@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAccount } from 'wagmi';
 import WalletConnectButton from '../wallet/WalletConnectButton';
 
 const Header: React.FC = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isConnected } = useAccount();
 
   const isActiveLink = (path: string) => {
     return location.pathname === path;
@@ -52,21 +54,26 @@ const Header: React.FC = () => {
                 >
                   🏆 Leaderboard
                 </Link>
-                <Link 
-                  to="/create-market" 
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
-                >
-                  Create Market
-                </Link>
-                <Link to="/profile" className="text-gray-700 hover:text-blue-600 transition-colors">
-                  Profile
-                </Link>
-                <Link 
-                  to="/admin" 
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
-                >
-                  Admin
-                </Link>
+                {/* Wallet-connected only items */}
+                {isConnected && (
+                  <>
+                    <Link 
+                      to="/create-market" 
+                      className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+                    >
+                      Create Market
+                    </Link>
+                    <Link to="/profile" className="text-gray-700 hover:text-blue-600 transition-colors">
+                      Profile
+                    </Link>
+                    <Link 
+                      to="/admin" 
+                      className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+                    >
+                      Admin
+                    </Link>
+                  </>
+                )}
               </nav>
 
               {/* Wallet Connection */}
@@ -151,39 +158,44 @@ const Header: React.FC = () => {
                 >
                   🏆 Leaderboard
                 </Link>
-                <Link
-                  to="/create-market"
-                  onClick={closeMobileMenu}
-                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                    isActiveLink('/create-market')
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  Create Market
-                </Link>
-                <Link
-                  to="/profile"
-                  onClick={closeMobileMenu}
-                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                    isActiveLink('/profile')
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  Profile
-                </Link>
-                <Link
-                  to="/admin"
-                  onClick={closeMobileMenu}
-                  className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                    isActiveLink('/admin')
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  Admin
-                </Link>
+                {/* Wallet-connected only items */}
+                {isConnected && (
+                  <>
+                    <Link
+                      to="/create-market"
+                      onClick={closeMobileMenu}
+                      className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                        isActiveLink('/create-market')
+                          ? 'text-blue-600 bg-blue-50'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      Create Market
+                    </Link>
+                    <Link
+                      to="/profile"
+                      onClick={closeMobileMenu}
+                      className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                        isActiveLink('/profile')
+                          ? 'text-blue-600 bg-blue-50'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      Profile
+                    </Link>
+                    <Link
+                      to="/admin"
+                      onClick={closeMobileMenu}
+                      className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                        isActiveLink('/admin')
+                          ? 'text-blue-600 bg-blue-50'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      Admin
+                    </Link>
+                  </>
+                )}
               </nav>
               
               {/* Wallet Connection */}
