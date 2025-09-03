@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePredictionMarket } from './usePredictionMarket';
-import type { Market, WinnerInfo } from '../utils/contracts';
+import type { WinnerInfo, MarketWithMetadata } from '../utils/contracts';
 
-export interface MarketWithUserShares extends Market {
+export interface MarketWithUserShares extends MarketWithMetadata {
   timeRemaining: number;
   isEnded: boolean;
   isActive: boolean;

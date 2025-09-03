@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { formatEther, parseEther } from 'viem';
+import { parseEther } from 'viem';
 import { usePotentialWinnings } from '../hooks/usePotentialWinnings';
-import type { Market, PotentialWinnings, WinningsBreakdown } from '../hooks/usePotentialWinnings';
+import type { PotentialWinnings } from '../hooks/usePotentialWinnings';
+import type { MarketWithMetadata } from '../utils/contracts';
 
 interface PotentialWinningsDisplayProps {
-  market: Market;
+  market: MarketWithMetadata;
   userAddress?: string;
   className?: string;
 }
@@ -13,7 +14,6 @@ const CELO_PRICE_USD = 0.311331;
 
 export const PotentialWinningsDisplay: React.FC<PotentialWinningsDisplayProps> = ({
   market,
-  userAddress,
   className = ''
 }) => {
   const [investmentAmount, setInvestmentAmount] = useState('0.01');
@@ -24,8 +24,7 @@ export const PotentialWinningsDisplay: React.FC<PotentialWinningsDisplayProps> =
   const {
     calculatePotentialWinnings,
     formatWinnings,
-    formatReturnPercentage,
-    calculateRiskRewardRatio
+    formatReturnPercentage
   } = usePotentialWinnings();
 
   // Calculate potential winnings when inputs change

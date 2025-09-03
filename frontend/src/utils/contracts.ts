@@ -1059,6 +1059,14 @@ export interface MarketMetadata {
   source: string;
 }
 
+// Combined interface for frontend use (Market + MarketMetadata)
+export interface MarketWithMetadata extends Market {
+  description: string;
+  category: string;
+  image: string;
+  source: string;
+}
+
 export interface CreatorFeeData {
   creator: string;
   fee: bigint;

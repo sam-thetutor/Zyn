@@ -13,7 +13,6 @@ const CELO_PRICE_USD = 0.311331;
 
 export const CreatorFeeClaim: React.FC<CreatorFeeClaimProps> = ({
   marketId,
-  marketQuestion,
   className = ''
 }) => {
   const [creatorFeeInfo, setCreatorFeeInfo] = useState<any>(null);

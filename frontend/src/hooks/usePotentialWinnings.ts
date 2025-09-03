@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { formatEther, parseEther } from 'viem';
 import { usePredictionMarket } from './usePredictionMarket';
 import type { Market } from '../utils/contracts';
@@ -25,8 +25,6 @@ export interface PotentialWinnings {
 
 export const usePotentialWinnings = () => {
   const { 
-    getMarket, 
-    getMarketMetadata, 
     calculateUserWinnings,
     getWinningsBreakdown: getContractWinningsBreakdown 
   } = usePredictionMarket();
@@ -63,7 +61,6 @@ export const usePotentialWinnings = () => {
       }
 
       // Get current pool state
-      const totalPool = market.totalPool;
       const totalYes = market.totalYes;
       const totalNo = market.totalNo;
 
@@ -160,8 +157,6 @@ export const usePotentialWinnings = () => {
       }
 
       // Get winnings from contract
-      const winnings = await calculateUserWinnings(marketId, userAddress);
-      
       // Get detailed breakdown from contract
       const breakdown = await getContractWinningsBreakdown(marketId, userAddress);
       
@@ -170,21 +165,22 @@ export const usePotentialWinnings = () => {
       }
 
       // Calculate return percentage
-      const userShares = breakdown.userShares || 0n;
-      const userWinnings = breakdown.userWinnings || 0n;
+      const userShares = (breakdown as any).userShares || 0n;
+      const userWinnings = (breakdown as any).userWinnings || 0n;
+      const difference = BigInt(userWinnings) - BigInt(userShares);
       const returnPercentage = Number(userShares) > 0 
-        ? Number((userWinnings - userShares) * 10000n / userShares) / 100
+        ? Number(difference * 10000n / userShares) / 100
         : 0;
 
       return {
-        userShares: breakdown.userShares || 0n,
-        totalWinningShares: breakdown.totalWinningShares || 0n,
-        totalLosingShares: breakdown.totalLosingShares || 0n,
-        userWinnings: breakdown.userWinnings || 0n,
+        userShares: (breakdown as any).userShares || 0n,
+        totalWinningShares: (breakdown as any).totalWinningShares || 0n,
+        totalLosingShares: (breakdown as any).totalLosingShares || 0n,
+        userWinnings: (breakdown as any).userWinnings || 0n,
         creatorFee: 0n, // This would need to be calculated separately
         platformFee: 0n, // This would need to be calculated separately
-        winnersFromLosers: (breakdown.userWinnings || 0n) - (breakdown.userShares || 0n),
-        hasLosingShares: breakdown.hasLosingShares || false,
+        winnersFromLosers: BigInt(((breakdown as any).userWinnings || 0n) - ((breakdown as any).userShares || 0n)),
+        hasLosingShares: (breakdown as any).hasLosingShares || false,
         returnPercentage
       };
 

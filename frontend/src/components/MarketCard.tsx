@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import type { Market } from '../utils/contracts';
+import type { MarketWithMetadata } from '../utils/contracts';
 import { formatEther } from 'viem';
 
 interface MarketCardProps {
-  market: Market;
+  market: MarketWithMetadata;
 }
 
 const MarketCard: React.FC<MarketCardProps> = ({ market }) => {

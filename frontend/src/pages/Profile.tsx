@@ -172,8 +172,6 @@ const Profile: React.FC = () => {
               { id: 'overview', label: 'Overview', count: null },
               { id: 'activities', label: 'Activities', count: userLogs.length },
               { id: 'markets', label: 'My Markets', count: userStats.totalMarkets },
-              { id: 'referrals', label: 'Referrals', count: referralStats.totalReferrals },
-              { id: 'Quests', label: 'Quests', count: userLogs.length }
             ].map((tab) => (
               <button
                 key={tab.id}

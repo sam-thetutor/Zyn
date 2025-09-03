@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { formatEther } from 'viem';
 import { usePotentialWinnings } from '../hooks/usePotentialWinnings';
 import type { WinningsBreakdown } from '../hooks/usePotentialWinnings';
 
